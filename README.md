@@ -1,6 +1,6 @@
 install the requirements using: 
 ```sh
-pip install -r requirements.txt
+pip install streamlit pandas numpy matplolib python-dotenv alpaca-py 
 ```
 
 create the file `.env`, and paste: 
