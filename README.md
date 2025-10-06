@@ -1,6 +1,6 @@
 install the requirements using: 
 ```sh
-pip install streamlit pandas numpy matplolib python-dotenv alpaca-py 
+pip install streamlit pandas numpy matplotlib python-dotenv alpaca-py 
 ```
 
 create the file `.env`, and paste: 
