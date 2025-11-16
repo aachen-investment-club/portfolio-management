@@ -1,0 +1,29 @@
+import requests
+from requests import Response
+from alpaca.trading.client import TradingClient
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+API_KEY = os.getenv("APCA_API_KEY_ID")
+SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
+
+client = TradingClient(API_KEY, SECRET_KEY, paper=True)
+
+assets = client.get_all_assets()
+
+print(assets[0].name)
+print(assets[0].attributes)
+
+"""
+url = "https://broker-api.sandbox.alpaca.markets/v1/assets?status=all&asset_class=us_equity&attributes="
+
+headers = {"accept": "application/json", 
+           "authentication":token}
+
+response :Response = requests.get(url, headers=headers)
+
+print(response)
+print(response.content)
+"""
