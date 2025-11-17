@@ -1,0 +1,49 @@
+{
+    "version":1,
+    "transactions":
+    [
+        {
+        "type":"PURCHASE",
+        "account":"USD",
+        "portfolio":"AIC to the Moon",
+        "date":"2000-01-11",
+        "time":"00:00",
+        "currency":"USD",
+        "shares":120000.0,
+        "security":{
+            "name":"Nvidia Corporation",
+            "ticker":"NVDA.OQ",
+            "currency":"USD"
+            }
+        },
+        {
+        "type":"PURCHASE",
+        "account":"USD",
+        "portfolio":"AIC to the Moon",
+        "date":"2007-05-02",
+        "time":"00:00",
+        "currency":"USD",
+        "shares":44.0,
+        "security":{
+            "name":"United Parcel Service",
+            "ticker":"UPS.N",
+            "currency":"USD"
+            }
+        },
+        {
+        "type":"SALE",
+        "account":"USD",
+        "portfolio":"AIC to the Moon",
+        "date":"2014-04-23",
+        "time":"00:00",
+        "currency":"USD",
+        "shares":120000.0,
+        "security":{
+            "name":"Nvidia Corporation",
+            "ticker":"NVDA.OQ",
+            "currency":"USD"
+            }
+        }
+    ]
+}
+    
