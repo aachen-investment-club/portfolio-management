@@ -116,7 +116,3 @@ class Market():
         cls.load_from_csv("./data/sp500_close.csv")
         cls.update_market() 
 
-Market.init()
-
-date = date.today()+timedelta(days = -5)
-print(Market.get_price("NVDA", date))
