@@ -111,9 +111,12 @@ class Market():
 
         return cls.quotes.loc[(ticker, date), PRICE].iloc[0]
 
- 
+    @classmethod
+    def init(cls): 
+        cls.load_from_csv("./data/sp500_close.csv")
+        cls.update_market() 
 
-Market.load_from_csv("./data/sp500_close.csv")
-Market.update_market()
+Market.init()
+
 date = date.today()+timedelta(days = -5)
 print(Market.get_price("NVDA", date))
