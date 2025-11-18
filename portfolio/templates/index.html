@@ -1,7 +1,109 @@
 <!DOCTYPE html>
-<html>
-    <head></head>
+<html lang="en" data-bs-theme="dark">
+    <head>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+        <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}"
+    </head>
     <body>
-        <h1>Hello World!</h1>
+        <nav class="navbar navbar-expand-lg bg-body-tertiary container-fluid p-3">
+            <a class="navbar-brand" href="#">Portfolio Management</a>
+        </nav>
+
+
+        <main class="container-fluid bg-body-red p-5">
+            <div class="d-grid gap-3" style="grid-template-columns: 2fr 1fr;">
+                <div class="container-fluid p-3 rounded bg-dark-subtle"
+                    style="grid-row: 1 / span 2;">
+                    <div id="main-chart" class="container-fluid p-0"></div>
+                </div>
+
+                <div class="bg-dark-subtle container-fluid 
+                    rounded p-3 position-relative">
+                    <h5>Sharpe Ratio</h5>
+                    <h1 class="position-absolute top-50 start-50 translate-middle">
+                        0.0
+                    </h1>
+                </div>
+                
+                <div class="bg-dark-subtle container-fluid 
+                    rounded p-3 position-relative">
+                    <h5>Net Asset Value</h5>
+                    <h1 class="position-absolute top-50 start-50 translate-middle">
+                        0.0
+                    </h1>
+                </div>
+                
+            </div>
+
+            <h2 class="mt-5">My Assets</h2>
+            <div class="d-grid container-fluid p-3 bg-dark-subtle rounded" 
+                style="grid-template-columns: 2fr repeat(3, 1fr);">
+                <div class="font-weight-bold border-bottom border-white">Stock</div>
+                <div class="font-weight-bold border-bottom border-white">Current</div>
+                <div class="font-weight-bold border-bottom border-white">Shares</div>
+                <div class="font-weight-bold border-bottom border-white">Asset Value</div>
+                
+                <div>NVIDIA</div>
+                <div>183.34</div>
+                <div>100</div>
+                <div>18,334.00</div>
+
+                <div>BITCOIN</div>
+                <div>93,086.43</div>
+                <div>10</div>
+                <div>930,864.30</div>
+
+                <div>APPLE</div>
+                <div>268.79</div>
+                <div>10</div>
+                <div>2,687.90</div>
+
+                <div>AMAZON</div>
+                <div>225.66</div>
+                <div>10</div>
+                <div>2,256.60</div>
+
+                <div>ALPHABET</div>
+                <div>288.91</div>
+                <div>10</div>
+                <div>2,889.10</div>
+            </div>
+
+            <h2 class="mt-5">My Metrics</h2>
+            <div class="d-grid gap-2" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="bg-dark-subtle container-fluid 
+                    rounded p-3 position-relative"
+                    style="height: 10em;">
+                    <h5>Metric A</h5>
+                    <h1 class="position-absolute top-50 start-50 translate-middle">
+                        0.0
+                    </h1>
+                </div>
+                <div class="bg-dark-subtle container-fluid 
+                    rounded p-3 position-relative"
+                    style="height: 10em;">
+                    <h5>Metric B</h5>
+                    <h1 class="position-absolute top-50 start-50 translate-middle">
+                        0.0
+                    </h1>
+                </div>
+                <div class="bg-dark-subtle container-fluid 
+                    rounded p-3 position-relative"
+                    style="height: 10em;">
+                    <h5>Metric C</h5>
+                    <h1 class="position-absolute top-50 start-50 translate-middle">
+                        0.0
+                    </h1>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+
+        </footer>
+
+        <script src="https://cdn.plot.ly/plotly-3.2.0.min.js" charset="utf-8"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+        <script src="{{ url_for('static', filename='index.js') }}"></script>
     </body>
 </html>
