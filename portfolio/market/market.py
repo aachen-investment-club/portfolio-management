@@ -39,7 +39,7 @@ class Market():
     -  
     """
     universe: Set[str]= {}
-    trading_days : Set[datetime] = {}
+    trading_days : Set[pd.Timestamp] = {}
     quotes: pd.DataFrame =None 
     latest_quote_date: pd.DataFrame = None
 
@@ -74,8 +74,15 @@ class Market():
             bars = stock_client.get_stock_bars(request_params)
         
             if bars:  
-                bars = bars.df[["close"]]
-                print(bars.head())
+                bars:pd.DataFrame = bars.df[["close"]]
+                bars.index = bars.index.set_levels(
+                 [bars.index.levels[0], bars.index.levels[1].floor("D").tz_localize(None)]
+                )
+                bars.index.names = [TICKER, DATE]
+                bars.columns =[PRICE]
+                cls.quotes = pd.concat([cls.quotes, bars]).sort_index()
+                cls.trading_days = cls.quotes.index.get_level_values(DATE).unique()
+                print(cls.quotes.index.get_level_values(DATE).max())
         else: 
             return 
             
@@ -93,7 +100,9 @@ class Market():
 
 
     @classmethod
-    def get_price(cls, ticker: str, date: datetime)->np.float64: 
+    def get_price(cls, ticker: str, date: datetime.date)->np.float64: 
+
+        date = pd.Timestamp(date)
         if ticker not in cls.universe:
             raise KeyError 
 
@@ -106,3 +115,5 @@ class Market():
 
 Market.load_from_csv("./data/sp500_close.csv")
 Market.update_market()
+date = date.today()+timedelta(days = -5)
+print(Market.get_price("NVDA", date))
