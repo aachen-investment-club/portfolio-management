@@ -113,6 +113,24 @@ class Portfolio():
         return True
 
 
+    def sell(self, product: str, quantity: int)-> bool: 
+        date = dte.today()
+        price = Market.get_latest_price(product)
+        delta_cash = price*quantity
+        new_cash = price *quantity 
+
+        #:TODO: figure out how sell works when having stocks bought at different points in time. 
+
+
+    def summary(self)-> dict: 
+        
+        #: TODO: extend this with positions (?)
+        return {
+            "cash": self.cash, 
+            "gross_exposure": self.get_gross_exposure(), 
+            "net_asset_value": self.get_net_asset_value()
+        }
+
 
 Market.init()
 date = dte.today()+timedelta(days = -2)
