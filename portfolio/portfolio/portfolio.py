@@ -2,7 +2,8 @@ from typing import List
 
 from ..market.market import Market
 
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
+from datetime import date as dte
 
 import pandas as pd
 import json
@@ -90,13 +91,35 @@ class Portfolio():
         return asset_df.groupby(TR_TICKER)["prod"].sum().sum()
 
 
+    def buy(self, product:str, quantity: int , currency: str): 
+        date = dte.today()
+        price = Market.get_latest_price(product)
+
+        cost = price* quantity
+        new_cash = self.cash-cost 
+        new_row = pd.DataFrame (
+            {
+                TR_VOLUME: [quantity], 
+                TR_CURRENCY:[currency] 
+            }, 
+            index = pd.MultiIndex.from_tuples([(product, pd.Timestamp(date))], names = [TR_TICKER, TR_DATE])
+        )
+        #: TODO: add leverage check?
+
+
+        self.cash = new_cash
+        self.portfolio= pd.concat([self.portfolio, new_row]).sort_index()
+
+        return True
+
 
 
 Market.init()
-date = date.today()+timedelta(days = -2)
+date = dte.today()+timedelta(days = -2)
 
 pf = Portfolio(10000, 100)
 pf.import_from_json("./data/trades.json")
 
 print(pf.get_gross_exposure())
-print(pf.get_net_asset_value())
+pf.buy("NVDA", 10000000, "USD")
+print(pf.get_gross_exposure())

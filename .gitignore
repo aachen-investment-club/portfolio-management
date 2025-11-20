@@ -1,4 +1,6 @@
 env
 .env
-./data
+venv/
+data/
 __pycache__
+.*.jpeg
