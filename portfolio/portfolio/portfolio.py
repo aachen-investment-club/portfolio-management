@@ -1,17 +1,102 @@
-
+from typing import List
 
 from ..market.market import Market
 
 from datetime import datetime, timedelta, date
 
+import pandas as pd
+import json
+import os
+
+
+
+TR_TYPE = "type"
+TR_CURRENCY = "currency"
+TR_DATE = "date"
+TR_VOLUME = "volume"
+TR_TICKER = "ticker"
 
 class Portfolio(): 
-    pass
+    def __init__(self, cash:float, leverage_limit:float)-> None:
+        self.cash: float = cash
+        self.leverage_limit: float = leverage_limit
+        self.portfolio:pd.DataFrame = None
+
+
+    def import_from_json(self, path): 
+
+        with open(path, mode="r", encoding="utf-8") as file:
+            data = json.load(file)
+            rows = []
+
+            for transaction in data["transactions"]: 
+                rows.append({
+                    TR_TICKER:transaction["security"]["ticker"], 
+                    TR_CURRENCY:transaction["currency"], 
+                    TR_DATE:pd.Timestamp(transaction["date"]), 
+                    TR_VOLUME:float(transaction["shares"]) 
+                })
+
+            self.portfolio= pd.DataFrame(rows)
+            self.portfolio=self.portfolio.set_index([TR_TICKER, TR_DATE]).sort_index()
+
+
+
+    def get_owned_securities(self) -> List[str]: 
+        return list(set(self.portfolio.index.get_level_values(TR_TICKER)))
+
+
+    def get_buy_prices(self, ticker: str): 
+        asset_df = self.portfolio.loc[[ticker]]
+        asset_df= asset_df.reset_index()
+        asset_df["price"] = asset_df[TR_DATE].apply(
+            lambda x: Market.get_price(ticker, x)
+        )
+
+        return asset_df
+
+
+
+
+    def get_gross_exposure(self)-> float: 
+        total = 0.0
+        assets= self.get_owned_securities()
+        asset_df = self.portfolio.reset_index()
+        asset_df["latest_price"] = asset_df.apply(
+            lambda x: Market.get_latest_price(x[TR_TICKER]), 
+            axis =1
+            )
+        asset_df["prod"]  = asset_df["latest_price"]*asset_df[TR_VOLUME]
+        return asset_df.groupby(TR_TICKER)["prod"].sum().sum()
+
+
+    def get_net_asset_value(self) -> float: 
+        return self.cash+ self.get_gross_exposure()
+
+    def get_gross_exposure_ticker(self, ticker:str)-> float: 
+        """
+        computes the product: volume_asset * latest_price_asset 
+        """
+        total = 0.0
+        assets= self.get_owned_securities()
+        asset_df = self.portfolio.reset_index()
+        asset_df = asset_df[asset_df[TR_TICKER]==ticker]
+        print(asset_df)
+        asset_df["latest_price"] = asset_df.apply(
+            lambda x: Market.get_latest_price(x[TR_TICKER]), 
+            axis =1
+            )
+        asset_df["prod"]  = asset_df["latest_price"]*asset_df[TR_VOLUME]
+        return asset_df.groupby(TR_TICKER)["prod"].sum().sum()
+
+
 
 
 Market.init()
+date = date.today()+timedelta(days = -2)
 
+pf = Portfolio(10000, 100)
+pf.import_from_json("./data/trades.json")
 
-
-date = date.today()+timedelta(days = -5)
-print(Market.get_price("NVDA", date))
+print(pf.get_gross_exposure())
+print(pf.get_net_asset_value())

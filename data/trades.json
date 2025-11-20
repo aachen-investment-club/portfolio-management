@@ -12,7 +12,7 @@
         "shares":120000.0,
         "security":{
             "name":"Nvidia Corporation",
-            "ticker":"NVDA.OQ",
+            "ticker":"NVDA",
             "currency":"USD"
             }
         },
@@ -26,7 +26,7 @@
         "shares":44.0,
         "security":{
             "name":"United Parcel Service",
-            "ticker":"UPS.N",
+            "ticker":"UPS",
             "currency":"USD"
             }
         },
@@ -40,7 +40,7 @@
         "shares":120000.0,
         "security":{
             "name":"Nvidia Corporation",
-            "ticker":"NVDA.OQ",
+            "ticker":"NVDA",
             "currency":"USD"
             }
         }

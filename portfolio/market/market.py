@@ -82,7 +82,6 @@ class Market():
                 bars.columns =[PRICE]
                 cls.quotes = pd.concat([cls.quotes, bars]).sort_index()
                 cls.trading_days = cls.quotes.index.get_level_values(DATE).unique()
-                print(cls.quotes.index.get_level_values(DATE).max())
         else: 
             return 
             
@@ -110,6 +109,14 @@ class Market():
             raise KeyError 
 
         return cls.quotes.loc[(ticker, date), PRICE].iloc[0]
+
+    @classmethod
+    def get_latest_price(cls, ticker: str) -> np.float64: 
+        today = date.today()+timedelta(days=-1) #: today is not finished yet
+        return cls.get_price(ticker, today)
+
+
+
 
     @classmethod
     def init(cls): 
