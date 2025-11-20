@@ -103,6 +103,7 @@ class Market():
 
         date = pd.Timestamp(date)
         if ticker not in cls.universe:
+            #:TODO: make this error more expressive (indicate whether ticker or date error)
             raise KeyError 
 
         if date not in cls.trading_days: 
