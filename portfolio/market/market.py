@@ -146,7 +146,7 @@ class Market():
         response = trading_client.get_calendar(request)
         if response: 
             return True
-        return False
+        raise TradingDayException("the selected date is not a trading date")
 
 
 
@@ -156,10 +156,12 @@ class Market():
         date = pd.Timestamp(date)
         if ticker not in cls.universe:
             #:TODO: make this error more expressive (indicate whether ticker or date error)
-            raise KeyError 
+            raise TickerException("the selected ticker is not traded in the market")
+
+        cls.is_trading_day(date) #: this may also raise a more descriptive exception
 
         if date not in cls.trading_days: 
-            raise KeyError 
+            raise DateException("the selected date is unavailable in the market") 
 
         return cls.quotes.loc[(ticker, date), PRICE].iloc[0]
 
@@ -176,3 +178,15 @@ class Market():
         cls.load_from_csv("./data/sp500_close.csv")
         cls.update_market() 
 
+
+
+class DateException(Exception): 
+    pass
+
+
+
+class TradingDayException(Exception): 
+    pass
+
+class TickerException(Exception): 
+    pass
