@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict, Tuple
 
 from ..market.market import Market
 
@@ -16,15 +16,24 @@ TR_CURRENCY = "currency"
 TR_DATE = "date"
 TR_VOLUME = "volume"
 TR_TICKER = "ticker"
+TR_TYPE= "type"
 
 class Portfolio(): 
     def __init__(self, cash:float, leverage_limit:float)-> None:
         self.cash: float = cash
         self.leverage_limit: float = leverage_limit
-        self.portfolio:pd.DataFrame = None
+        self.trades:pd.DataFrame = None
+        self.current_position ={} #: observation: we assume short selling in this implementation.
+
 
 
     def import_from_json(self, path): 
+        """
+        imports a FULL trades log and: 
+        - saves the trades 
+        - updates the current position
+        - updates current cash
+        """
 
         with open(path, mode="r", encoding="utf-8") as file:
             data = json.load(file)
@@ -34,6 +43,7 @@ class Portfolio():
                 rows.append({
                     TR_TICKER:transaction["security"]["ticker"], 
                     TR_CURRENCY:transaction["currency"], 
+                    TR_TYPE:transaction["type"],
                     TR_DATE:pd.Timestamp(transaction["date"]), 
                     TR_VOLUME:float(transaction["shares"]) 
                 })
@@ -41,17 +51,20 @@ class Portfolio():
             #: TODO: consider the operation type; add options to reconstruct portfolio states.  
 
 
-            self.portfolio= pd.DataFrame(rows)
-            self.portfolio=self.portfolio.set_index([TR_TICKER, TR_DATE]).sort_index()
+            self.trades= pd.DataFrame(rows)
+            self.trades=self.trades.set_index([TR_TICKER, TR_DATE]).sort_index()
+            
+            today = dte.today()
+            self.current_position, self.cash = self.get_position(dte.today())
 
 
 
     def get_owned_securities(self) -> List[str]: 
-        return list(set(self.portfolio.index.get_level_values(TR_TICKER)))
+        return list(self.current_position.keys())
 
 
     def get_buy_prices(self, ticker: str): 
-        asset_df = self.portfolio.loc[[ticker]]
+        asset_df = self.trades.loc[[ticker]]
         asset_df= asset_df.reset_index()
         asset_df["price"] = asset_df[TR_DATE].apply(
             lambda x: Market.get_price(ticker, x)
@@ -65,55 +78,18 @@ class Portfolio():
     def get_gross_exposure(self)-> float: 
         total = 0.0
         assets= self.get_owned_securities()
-        asset_df = self.portfolio.reset_index()
-        asset_df["latest_price"] = asset_df.apply(
-            lambda x: Market.get_latest_price(x[TR_TICKER]), 
-            axis =1
-            )
-        asset_df["prod"]  = asset_df["latest_price"]*asset_df[TR_VOLUME]
-        return asset_df.groupby(TR_TICKER)["prod"].sum().sum()
+
+
+        for product, vol in self.current_position.items():
+            price = Market.get_latest_price(product)
+            total += abs(vol)*price
+        return total
 
 
     def get_net_asset_value(self) -> float: 
         return self.cash+ self.get_gross_exposure()
 
-    def get_gross_exposure_ticker(self, ticker:str)-> float: 
-        """
-        computes the product: volume_asset * latest_price_asset 
-        """
-        total = 0.0
-        assets= self.get_owned_securities()
-        asset_df = self.portfolio.reset_index()
-        asset_df = asset_df[asset_df[TR_TICKER]==ticker]
-        print(asset_df)
-        asset_df["latest_price"] = asset_df.apply(
-            lambda x: Market.get_latest_price(x[TR_TICKER]), 
-            axis =1
-            )
-        asset_df["prod"]  = asset_df["latest_price"]*asset_df[TR_VOLUME]
-        return asset_df.groupby(TR_TICKER)["prod"].sum().sum()
-
-
-    def buy(self, product:str, quantity: int , currency: str): 
-        date = dte.today()
-        price = Market.get_latest_price(product)
-
-        cost = price* quantity
-        new_cash = self.cash-cost 
-        new_row = pd.DataFrame (
-            {
-                TR_VOLUME: [quantity], 
-                TR_CURRENCY:[currency] 
-            }, 
-            index = pd.MultiIndex.from_tuples([(product, pd.Timestamp(date))], names = [TR_TICKER, TR_DATE])
-        )
-        #: TODO: add leverage check?
-
-
-        self.cash = new_cash
-        self.portfolio= pd.concat([self.portfolio, new_row]).sort_index()
-
-        return True
+   
 
 
     def sell(self, product: str, quantity: int)-> bool: 
@@ -136,13 +112,69 @@ class Portfolio():
             "net_asset_value": self.get_net_asset_value()
         }
 
+    def get_position(self, date:datetime)-> Tuple[Dict, float]: 
+
+        sublog = self.trades[self.trades.index.get_level_values(TR_DATE)<= pd.Timestamp(date)]
+        position = {}
+
+        traded_assets =  self.trades.index.get_level_values(TR_TICKER).unique()
+        total_cash = self.cash
+        for asset in traded_assets: 
+            operations = sublog[sublog.index.get_level_values(TR_TICKER)== asset]
+            operations = operations.reset_index()
+            
+            #print(operations)
+            #print(operations.columns)
+            operations["close_price"] = operations.apply(
+                lambda x: Market.get_price(x[TR_TICKER], x[TR_DATE] ), 
+                axis = 1
+            )
+
+            purchases = operations[operations[TR_TYPE]== "PURCHASE"]
+            purchases_cash = (purchases[TR_VOLUME]*purchases["close_price"]).sum()
+
+            sales = operations[operations[TR_TYPE]== "SALE"]
+            sales_cash = (sales[TR_VOLUME]*sales["close_price"]).sum()
+
+
+            total_cash = total_cash + sales_cash- purchases_cash
+            #: OBSERVATION: WE ASSUME SHORT SELLING
+            position[asset] = sum(purchases[TR_VOLUME])-sum(sales[TR_VOLUME])
+
+        return position, total_cash
+
+
+    def buy(self, product:str, quantity: int , currency: str): 
+        date = dte.today()
+        price = Market.get_latest_price(product)
+
+        cost = price* quantity
+        new_cash = self.cash-cost 
+        new_row = pd.DataFrame (
+            {
+                TR_VOLUME: [quantity], 
+                TR_CURRENCY:[currency] , 
+                TR_TYPE: ["PURCHASE"] 
+            }, 
+            index = pd.MultiIndex.from_tuples([(product, pd.Timestamp(date))], names = [TR_TICKER, TR_DATE])
+        )
+
+        self.current_position[product]+= quantity
+
+
+        #: TODO: add leverage check?
+
+
+        self.cash = new_cash
+        self.trades= pd.concat([self.trades, new_row]).sort_index()
+
+        return True
+
+
+
 
 Market.init()
-date = dte.today()+timedelta(days = -2)
-
 pf = Portfolio(10000, 100)
 pf.import_from_json("./data/trades.json")
-
-
-print(Market.get_us_treasury_bonds())
-
+print(pf.current_position)
+print(pf.cash)
