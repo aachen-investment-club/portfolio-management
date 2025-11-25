@@ -146,7 +146,3 @@ pf.import_from_json("./data/trades.json")
 
 print(Market.get_us_treasury_bonds())
 
-
-#print(pf.get_gross_exposure())
-#pf.buy("NVDA", 10000000, "USD")
-#print(pf.get_gross_exposure())

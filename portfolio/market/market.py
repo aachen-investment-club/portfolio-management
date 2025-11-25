@@ -21,7 +21,7 @@ load_dotenv()
 
 API_KEY = os.getenv("APCA_API_KEY_ID") 
 SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
-
+CSV_PATH =  "./data/sp500_close_current.csv"
 
 
 DATE = "Date"
@@ -83,8 +83,8 @@ class Market():
             df = df.set_index(keys = "record_date")
 
             df.drop(columns= ["security_desc"], inplace=True)
-            df = df.rename(columns = {"avg_interest_rate_amt":"rate"})
-            df.index.name = "date"
+            df = df.rename(columns = {"avg_interest_rate_amt":"Rate"})
+            df.index.name = "Date"
             return df
 
         return None 
@@ -96,32 +96,23 @@ class Market():
 
 
 
-    @classmethod
-    def load_from_csv(cls, path, from_yahoo= True)->None: 
-        data = pd.read_csv(path)
-        data[DATE]= pd.to_datetime(data[DATE])
-        if from_yahoo: 
-            data[TICKER]= data[TICKER].str.split(".").str[0] #: use this to convert yahoo finance/ refinitiv format to standard ticker naming.
-        df_new = data.set_index([TICKER, DATE])[[PRICE]]
-
-
-        cls.latest_quote_date = data[DATE].max()
-        cls.quotes = df_new
-        cls.trading_days = set(data[DATE])
-        cls.universe = set(data[TICKER].unique())
-
 
     @classmethod
     def update_market(cls): 
-        today = pd.Timestamp(dte.today())
-        if cls.latest_quote_date != today and cls.is_trading_day(today): 
+        latest_quote = pd.Timestamp(Market.get_latest_quotation_date())
+
+    
+
+
+        if cls.latest_quote_date != latest_quote and cls.is_trading_day(latest_quote): 
+            print("market incomplete, proceding with update...")
 
             stocks = list(cls.universe)
             request_params= StockBarsRequest(
                 symbol_or_symbols=stocks, 
                 timeframe=TimeFrame.Day, 
                 start= cls.latest_quote_date+timedelta(1), #: inclusive
-                end =today  # non inclusive
+                end =latest_quote# non inclusive
             )
             bars = stock_client.get_stock_bars(request_params)
         
@@ -134,6 +125,8 @@ class Market():
                 bars.columns =[PRICE]
                 cls.quotes = pd.concat([cls.quotes, bars]).sort_index()
                 cls.trading_days = cls.quotes.index.get_level_values(DATE).unique()
+
+                cls.write_csv()
         else: 
             return 
             
@@ -146,7 +139,22 @@ class Market():
         response = trading_client.get_calendar(request)
         if response: 
             return True
-        raise TradingDayException("the selected date is not a trading date")
+        return False
+
+    @staticmethod
+    def get_latest_trading_day(): 
+        today = dte.today()
+        while not Market.is_trading_day(today): 
+            today = today+ timedelta(days = -1)
+        return today
+
+
+    def get_latest_quotation_date(): 
+        today = dte.today()+ timedelta(days = -1) #: the latest quotation date is the previous trading day
+        while not Market.is_trading_day(today): 
+            today = today+ timedelta(days = -1)
+        return today
+
 
 
 
@@ -158,7 +166,8 @@ class Market():
             #:TODO: make this error more expressive (indicate whether ticker or date error)
             raise TickerException("the selected ticker is not traded in the market")
 
-        cls.is_trading_day(date) #: this may also raise a more descriptive exception
+        if not cls.is_trading_day(date): #: this may also raise a more descriptive exception
+            raise TradingDayException("the selected date is not a trading date")
 
         if date not in cls.trading_days: 
             raise DateException("the selected date is unavailable in the market") 
@@ -170,13 +179,54 @@ class Market():
         today = dte.today()+timedelta(days=-1) #: today is not finished yet
         return cls.get_price(ticker, today)
 
-    #: 
 
 
     @classmethod
     def init(cls): 
-        cls.load_from_csv("./data/sp500_close.csv")
+        cls.load_from_csv(CSV_PATH,False)
         cls.update_market() 
+
+    @classmethod 
+    def update_csv(cls): 
+        pass
+
+
+    @classmethod
+    def write_csv(cls): 
+        cls.quotes.to_csv(CSV_PATH)
+
+
+
+    @classmethod
+    def load_from_csv(
+            cls, 
+            path, 
+            original_mathis = False #: this is temporary
+        )->None: 
+
+        if original_mathis: 
+            data = pd.read_csv(path)
+            data[DATE]= pd.to_datetime(data[DATE])
+            data[TICKER]= data[TICKER].str.split(".").str[0] #: use this to convert yahoo finance/ refinitiv format to standard ticker naming.
+            df_new = data.set_index([TICKER, DATE])[[PRICE]]
+
+
+            cls.latest_quote_date = data[DATE].max()
+            cls.quotes = df_new
+            cls.trading_days = set(data[DATE])
+            cls.universe = set(data[TICKER].unique())
+        else: 
+            data = pd.read_csv(path)
+            data[DATE]= pd.to_datetime(data[DATE])
+            df_new = data.set_index([TICKER, DATE])[[PRICE]]
+            
+
+            cls.latest_quote_date = data[DATE].max()
+            cls.quotes = df_new
+            cls.trading_days = set(data[DATE])
+            cls.universe = set(data[TICKER].unique())
+
+
 
 
 
