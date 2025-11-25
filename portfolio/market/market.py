@@ -1,8 +1,11 @@
 import pandas as pd
 import numpy as np
+import requests
+import json 
 
-from typing import List, Set
-from datetime import datetime, timedelta, date
+from typing import List, Set, Dict
+from datetime import datetime, timedelta 
+from  datetime import date as dte
 import os
 
 from alpaca.data import  StockHistoricalDataClient , StockBarsRequest, TimeFrame, TimeFrameUnit
@@ -29,7 +32,7 @@ stock_client = StockHistoricalDataClient(API_KEY,  SECRET_KEY)
 trading_client = TradingClient(API_KEY,  SECRET_KEY)
 
 
-
+US_TREASURY_API = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/"
 
 
 
@@ -42,6 +45,55 @@ class Market():
     trading_days : Set[pd.Timestamp] = {}
     quotes: pd.DataFrame =None 
     latest_quote_date: pd.DataFrame = None
+
+
+
+    @classmethod 
+    def get_us_treasury_bonds(cls)-> pd.DataFrame: 
+        """
+        returns monthly 30 year treasury bonds 
+        """
+
+
+        endpoint = "v2/accounting/od/avg_interest_rates"
+        today = str(dte.today())
+        response = requests.get(
+            url = US_TREASURY_API+ endpoint,
+            params = {
+                "format" : "json", 
+                "filter" : f"record_date:lte:{today}", 
+                "sort": "record_date", 
+                "page[size]": 10000, 
+                "page[number]": 1
+            }
+        )
+        
+        if response: 
+            data:List[Dict] = json.loads(response.content) ["data"]
+
+            df = pd.DataFrame(data)
+
+            df = df[["record_date", "avg_interest_rate_amt", "security_desc"]]
+            df= df[df["security_desc"]== "Treasury Bonds"] 
+            
+            df["record_date"] = pd.to_datetime(df["record_date"])
+            df["avg_interest_rate_amt"] = pd.to_numeric(df["avg_interest_rate_amt"], errors = "coerce")
+
+            df.dropna(inplace= True, axis = 0) 
+            df = df.set_index(keys = "record_date")
+
+            df.drop(columns= ["security_desc"], inplace=True)
+            df = df.rename(columns = {"avg_interest_rate_amt":"rate"})
+            df.index.name = "date"
+            return df
+
+        return None 
+
+
+
+
+
+
 
 
     @classmethod
@@ -61,7 +113,7 @@ class Market():
 
     @classmethod
     def update_market(cls): 
-        today = pd.Timestamp(date.today())
+        today = pd.Timestamp(dte.today())
         if cls.latest_quote_date != today and cls.is_trading_day(today): 
 
             stocks = list(cls.universe)
@@ -113,10 +165,10 @@ class Market():
 
     @classmethod
     def get_latest_price(cls, ticker: str) -> np.float64: 
-        today = date.today()+timedelta(days=-1) #: today is not finished yet
+        today = dte.today()+timedelta(days=-1) #: today is not finished yet
         return cls.get_price(ticker, today)
 
-
+    #: 
 
 
     @classmethod

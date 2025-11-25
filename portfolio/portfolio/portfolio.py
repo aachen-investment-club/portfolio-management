@@ -38,6 +38,9 @@ class Portfolio():
                     TR_VOLUME:float(transaction["shares"]) 
                 })
 
+            #: TODO: consider the operation type; add options to reconstruct portfolio states.  
+
+
             self.portfolio= pd.DataFrame(rows)
             self.portfolio=self.portfolio.set_index([TR_TICKER, TR_DATE]).sort_index()
 
@@ -119,7 +122,9 @@ class Portfolio():
         delta_cash = price*quantity
         new_cash = price *quantity 
 
+
         #:TODO: figure out how sell works when having stocks bought at different points in time. 
+        #: maybe this function for the objective of the program does not make sense
 
 
     def summary(self)-> dict: 
@@ -138,6 +143,10 @@ date = dte.today()+timedelta(days = -2)
 pf = Portfolio(10000, 100)
 pf.import_from_json("./data/trades.json")
 
-print(pf.get_gross_exposure())
-pf.buy("NVDA", 10000000, "USD")
-print(pf.get_gross_exposure())
+
+print(Market.get_us_treasury_bonds())
+
+
+#print(pf.get_gross_exposure())
+#pf.buy("NVDA", 10000000, "USD")
+#print(pf.get_gross_exposure())
