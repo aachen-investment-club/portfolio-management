@@ -1,13 +1,18 @@
-install the requirements using: 
-```sh
-pip install streamlit pandas numpy matplotlib python-dotenv alpaca-py 
+# Portfolio Management
+
+Portable, lightweight dashboard with custom metrics for the Aachen Investment Club assets.
+
+### Installation
+1. Setup the `.env` file based on the `.env.example` template.
+2. [optional] Create a virtual python environment using
 ```
-
-create the file `.env`, and paste: 
-```sh
-ENDPOINT = https://paper-api.alpaca.markets/v2
-APCA_API_KEY_ID = <YOUR_KEY>
-APCA_API_SECRET_KEY = <YOUR_KEY>
+python3.12 -m venv env && source env/bin/activate
 ```
-
-
+3. Run installation of dependencies
+```
+pip install -r requirements.txt
+```
+4. To run the application, simply run
+```
+python3.12 portfolio
+```
