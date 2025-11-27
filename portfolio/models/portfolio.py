@@ -1,6 +1,6 @@
 from typing import List, Dict, Tuple
 
-from market import Market
+from portfolio.models.market import Market
 
 from datetime import datetime, timedelta
 from datetime import date as dte
@@ -171,9 +171,3 @@ class Portfolio():
 
 
 
-
-# Market.init()
-# pf = Portfolio(10000, 100)
-# pf.import_from_json("./data/trades.json")
-# print(pf.current_position)
-# print(pf.cash)
