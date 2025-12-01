@@ -8,8 +8,9 @@ load_dotenv()#: it is important to call this before the market!!
 
 
 
-from market import Market
+from market import Market, TICKER, PRICE
 from portfolio import Portfolio
+from metrics import Metrics
 import os
 import pandas as pd
 import datetime
@@ -55,7 +56,20 @@ def test1():
     print(pf.current_position)
     print(pf.get_current_leverage())
 
-test1()
+    print(Market.quotes.index.get_level_values(TICKER))
+    #print(Metrics.get_daily_log_returns())
+
+
+
+
+def test2():
+    Market.init("./data/sp500_close_current.csv")
+    data = Market.quotes.loc["NVDA"][PRICE]
+
+    print(Metrics.get_daily_returns(data))
+    print(Metrics.get_daily_log_returns(data))
+
+test2()
 
 #generate_sublog()
 #test_import()

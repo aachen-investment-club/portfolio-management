@@ -39,7 +39,7 @@ class Market():
     universe: Set[str]= {}
     trading_days : Set[pd.Timestamp] = {}
     quotes: pd.DataFrame =None 
-    latest_quote_date: pd.DataFrame = None
+    latest_quote_date =None
     csv_path:str = None
 
 
@@ -138,12 +138,9 @@ class Market():
             today = today+ timedelta(days = -1)
         return today
 
-
-    def get_latest_quotation_date(): 
-        today = dte.today()+ timedelta(days = -1) #: the latest quotation date is the previous trading day
-        while not Market.is_trading_day(today): 
-            today = today+ timedelta(days = -1)
-        return today
+    @classmethod
+    def get_latest_quotation_date(cls): 
+        return cls.latest_quote_date
 
 
 

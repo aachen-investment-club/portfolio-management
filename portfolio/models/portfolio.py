@@ -102,7 +102,10 @@ class Portfolio():
             "net_asset_value": self.get_net_asset_value()
         }
 
+    
+
     def get_position(self, date:datetime)-> Tuple[Dict, float]: 
+        #: observation: we assume that past states comply with leverage, thus we dont check this
 
         sublog = self.trades[self.trades.index.get_level_values(TR_DATE)<= pd.Timestamp(date)]
         position = {}
@@ -119,7 +122,7 @@ class Portfolio():
                 lambda x: Market.get_price(x[TR_TICKER], x[TR_DATE] ), 
                 axis = 1
             )
-
+            
             purchases = operations[operations[TR_TYPE]== "PURCHASE"]
             purchases_cash = (purchases[TR_VOLUME]*purchases["close_price"]).sum()
 
