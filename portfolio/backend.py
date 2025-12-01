@@ -1,6 +1,8 @@
-import os 
+import os
+from typing import List 
 from flask import request
 
+from alpaca.data.models import Bar
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
@@ -28,6 +30,13 @@ def portfolio():
         start=datetime.now() - timedelta(days=10),
     )
     ticker_data = client.get_stock_bars(req)
+
+    def bar_to_json(bars: List[Bar]):
+        return {
+            "ticker": bars[0].symbol,
+            "timestamp": list(map(lambda x: x.timestamp.isoformat(), bars)),
+            "open": list(map(lambda x: x.open, bars))
+        }
     
     # Transform to JSON
     purchase_transactions = filter(lambda x: x["type"] =="PURCHASE", content["transactions"])
@@ -40,4 +49,14 @@ def portfolio():
             "shares": purchase["shares"],
             "asset_value": purchase["shares"] * ticker_data.data[ticker][-1].open
         })
-    return portfolio_data
+
+    historical_data = dict()
+    for ticker in tickers:
+        historical_data[ticker] = bar_to_json(ticker_data.data[ticker])
+    return {
+        "portfolio": portfolio_data,
+        "historical_data": historical_data
+    }
+
+# @app.route("/api/market_data", methods=["POST"])
+# def historical_market_data():
