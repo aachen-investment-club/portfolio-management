@@ -17,7 +17,7 @@ from datetime import date as dte
 
 class TestMarket(unittest.TestCase): 
   """
-  python -m unittest discover -s tes 
+  python -m unittest discover -s test 
   """
 
   def setUp(self):

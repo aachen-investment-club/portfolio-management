@@ -166,7 +166,8 @@ class Market():
 
     @classmethod
     def get_latest_price(cls, ticker: str) -> np.float64: 
-        today = dte.today()+timedelta(days=-1) #: today is not finished yet
+        
+        today = cls.get_latest_quotation_date()  #: today is not finished yet
         return cls.get_price(ticker, today)
 
 

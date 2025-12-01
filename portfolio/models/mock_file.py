@@ -13,6 +13,7 @@ from portfolio import Portfolio
 import os
 import pandas as pd
 import datetime
+from datetime import date as dte
 
 
 
@@ -33,5 +34,28 @@ def test_import():
     print(Market.quotes.index.get_level_values("Date").max())
 
 
-generate_sublog()
-test_import()
+def test1(): 
+    Market.init("./data/sp500_close_current.csv")
+
+    pf = Portfolio(100, 100)
+    pf.import_from_json("./data/trades.json")
+
+    print(pf.current_position)
+
+
+    pf.buy("UPS", 10, "USD")
+    print(pf.current_position)
+    pf.buy("UPS", 15, "USD")
+
+    print(pf.current_position)
+    pf.sell("UPS", 2, "USD")
+    print(pf.current_position)
+
+    pf.sell("NVDA", 100000, "USD")
+    print(pf.current_position)
+    print(pf.get_current_leverage())
+
+test1()
+
+#generate_sublog()
+#test_import()
