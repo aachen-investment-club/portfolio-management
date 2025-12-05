@@ -11,9 +11,12 @@ import os
 from alpaca.data import  StockHistoricalDataClient , StockBarsRequest, TimeFrame, TimeFrameUnit
 from alpaca.trading.client import TradingClient, GetCalendarRequest
 
+
+
 API_KEY = os.getenv("APCA_API_KEY_ID") 
 SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
-CSV_PATH =  "../data/sp500_close_current.csv"
+
+
 
 
 DATE = "Date"
@@ -36,7 +39,8 @@ class Market():
     universe: Set[str]= {}
     trading_days : Set[pd.Timestamp] = {}
     quotes: pd.DataFrame =None 
-    latest_quote_date: pd.DataFrame = None
+    latest_quote_date =None
+    csv_path:str = None
 
 
 
@@ -83,21 +87,23 @@ class Market():
 
     @classmethod
     def update_market(cls): 
-        latest_quote = pd.Timestamp(Market.get_latest_quotation_date())
+        expected_latest_quote = pd.Timestamp(Market.get_latest_quotation_date())
 
-        if cls.latest_quote_date != latest_quote and cls.is_trading_day(latest_quote): 
-            print("market incomplete, proceding with update...")
+        if cls.latest_quote_date != expected_latest_quote and cls.is_trading_day(expected_latest_quote): 
+            print("updating market...")
 
             stocks = list(cls.universe)
             request_params= StockBarsRequest(
                 symbol_or_symbols=stocks, 
                 timeframe=TimeFrame.Day, 
                 start= cls.latest_quote_date+timedelta(1), #: inclusive
-                end =latest_quote# non inclusive
+                end =expected_latest_quote+timedelta(1)# non inclusive; add one because of this
             )
             bars = stock_client.get_stock_bars(request_params)
+
         
             if bars:  
+
                 bars:pd.DataFrame = bars.df[["close"]]
                 bars.index = bars.index.set_levels(
                  [bars.index.levels[0], bars.index.levels[1].floor("D").tz_localize(None)]
@@ -107,8 +113,11 @@ class Market():
                 cls.quotes = pd.concat([cls.quotes, bars]).sort_index()
                 cls.trading_days = cls.quotes.index.get_level_values(DATE).unique()
 
+
                 cls.write_csv()
+                print("done updating market")
         else: 
+            print("market up to date")
             return 
             
 
@@ -129,12 +138,9 @@ class Market():
             today = today+ timedelta(days = -1)
         return today
 
-
-    def get_latest_quotation_date(): 
-        today = dte.today()+ timedelta(days = -1) #: the latest quotation date is the previous trading day
-        while not Market.is_trading_day(today): 
-            today = today+ timedelta(days = -1)
-        return today
+    @classmethod
+    def get_latest_quotation_date(cls): 
+        return cls.latest_quote_date
 
 
 
@@ -157,14 +163,16 @@ class Market():
 
     @classmethod
     def get_latest_price(cls, ticker: str) -> np.float64: 
-        today = dte.today()+timedelta(days=-1) #: today is not finished yet
+        
+        today = cls.get_latest_quotation_date()  #: today is not finished yet
         return cls.get_price(ticker, today)
 
 
 
     @classmethod
-    def init(cls): 
-        cls.load_from_csv(CSV_PATH,False)
+    def init(cls, csv_path:str): 
+        cls.csv_path = csv_path
+        cls.load_from_csv(cls.csv_path,False)
         cls.update_market() 
 
     @classmethod 
@@ -174,7 +182,7 @@ class Market():
 
     @classmethod
     def write_csv(cls): 
-        cls.quotes.to_csv(CSV_PATH)
+        cls.quotes.to_csv(cls.csv_path)
 
 
 
