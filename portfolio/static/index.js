@@ -10,7 +10,28 @@ const submitButton = document.getElementById('submit-button');
 const inputFile = document.getElementById('input-file');
 
 let portfolioData = undefined;
-let historicalData = {};
+let historicalData = undefined;
+let tickers = undefined;
+
+const pollMarket = async () => {
+    const res = await axios.get("http://localhost:5000/api/market_data", {
+        params: {
+            tickers: tickers.join(",")
+        }
+    })
+
+    const market = res.data.market;
+    const timestamp = res.data.timestamp;
+    for (const data of market) {
+        const plotData = historicalData.find(x => x.name === data.symbol);
+        if (plotData) {
+            plotData.x.push(new Date().toISOString());
+            plotData.y.push(data.open);
+        }
+    }
+    Plotly.redraw(mainChart, historicalData);
+}
+let interval = undefined;
 
 submitButton.onclick = async (e) => {
     const file = inputFile.files[0];
@@ -26,7 +47,8 @@ submitButton.onclick = async (e) => {
             mode: "lines+markers"
         })
     );
-    Plotly.react(mainChart, historicalData, { margin: { t: 0 } })
+    tickers = Object.keys(res.data.historical_data);
+    Plotly.newPlot(mainChart, historicalData, { margin: { t: 0 } })
     inputFileForm.style.display = "none";
 
     for (const data of portfolioData) {
@@ -44,4 +66,6 @@ submitButton.onclick = async (e) => {
         mainTable.appendChild(shares);
         mainTable.appendChild(assetValue);
     }
+
+    interval = setInterval(pollMarket, 60 * 1000);
 };

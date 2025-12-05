@@ -4,7 +4,7 @@ from flask import request
 
 from alpaca.data.models import Bar
 from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest
+from alpaca.data.requests import StockBarsRequest, StockLatestBarRequest
 from alpaca.data.timeframe import TimeFrame
 from alpaca.data.historical import StockHistoricalDataClient
 
@@ -58,5 +58,28 @@ def portfolio():
         "historical_data": historical_data
     }
 
-# @app.route("/api/market_data", methods=["POST"])
-# def historical_market_data():
+@app.route("/api/market_data", methods=["GET"])
+def historical_market_data():
+    tickers = request.args.get("tickers").split(",")
+    
+    
+    client = StockHistoricalDataClient(
+        os.getenv("APCA_API_KEY_ID"),
+        os.getenv("APCA_API_SECRET_KEY")
+    )
+    req = StockLatestBarRequest(
+        symbol_or_symbols=tickers
+    )
+    ticker_data = client.get_stock_latest_bar(request_params=req)
+    timestamp = list(ticker_data.values())[0].timestamp
+    
+    def bar_to_json(bar: Bar):
+        return {
+            "open": bar.open,
+            "symbol": bar.symbol
+        }
+
+    return {
+        "timestamp": timestamp.isoformat(),
+        "market": list(map(bar_to_json, ticker_data.values()))
+    }
