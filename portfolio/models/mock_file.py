@@ -69,7 +69,10 @@ def test2():
     print(Metrics.get_daily_returns(data))
     print(Metrics.get_daily_log_returns(data))
 
-test2()
+def test_athena(): 
+    df = Market.test_athena()
+    print(df.columns)
 
+test_athena()
 #generate_sublog()
 #test_import()

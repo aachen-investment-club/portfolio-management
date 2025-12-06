@@ -10,7 +10,9 @@ import os
 
 from alpaca.data import  StockHistoricalDataClient , StockBarsRequest, TimeFrame, TimeFrameUnit
 from alpaca.trading.client import TradingClient, GetCalendarRequest
+import boto3
 
+import time
 
 
 API_KEY = os.getenv("APCA_API_KEY_ID") 
@@ -19,16 +21,25 @@ SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
 
 
 
-DATE = "Date"
-TICKER = "Ticker"
-PRICE = "Price Close"
+DATE = "date"
+TICKER = "ticker"
+PRICE = "price close"
 
 stock_client = StockHistoricalDataClient(API_KEY,  SECRET_KEY)
 trading_client = TradingClient(API_KEY,  SECRET_KEY)
 
 
+
+athena = boto3.client("athena")
+#session = boto3.Session()
+#print(session.client("sts").get_caller_identity())
+
 US_TREASURY_API = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/"
 
+
+ATHENA_DB =  "portfolio-management-db"
+ATHENA_TABLE = "portfolio_management_developer"
+ATHENA_OUTPUT_LOCATION = "s3://athena-outputs-developer/athena/"
 
 
 class Market(): 
@@ -41,6 +52,54 @@ class Market():
     quotes: pd.DataFrame =None 
     latest_quote_date =None
     csv_path:str = None
+
+
+    @classmethod 
+    def test_athena(cls): 
+        query = f"""
+            SELECT *
+            FROM "{ATHENA_DB}"."{ATHENA_TABLE}"
+            WHERE ticker IN ('NVDA', 'INTC')
+            LIMIT 100
+            """
+
+        response = athena.start_query_execution(
+            QueryString=query,
+            QueryExecutionContext={"Database": ATHENA_DB},
+            ResultConfiguration={"OutputLocation":  ATHENA_OUTPUT_LOCATION}
+        )
+        query_execution_id = response["QueryExecutionId"]
+
+        while True:
+            status = athena.get_query_execution(QueryExecutionId=query_execution_id)
+            state = status["QueryExecution"]["Status"]["State"]
+
+            if state in ["SUCCEEDED", "FAILED", "CANCELLED"]:
+                break
+
+            time.sleep(1)
+
+        if state == "SUCCEEDED":
+            results = athena.get_query_results(QueryExecutionId=query_execution_id)
+            rows = results["ResultSet"]["Rows"]
+            
+            columns = [col["VarCharValue"] for col in rows[0]["Data"]]
+
+            data = []
+            for row in rows[1:]:
+                data.append([col["VarCharValue"] for col in row["Data"]])
+
+            df = pd.DataFrame(data, columns=columns) 
+
+            df[DATE]= pd.to_datetime(df[DATE])
+            df= df.set_index([TICKER, DATE])
+                    
+            return df
+        else:
+            print("Query failed:", state)
+
+
+
 
 
 
