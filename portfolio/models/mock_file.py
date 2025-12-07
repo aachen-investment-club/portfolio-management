@@ -73,6 +73,10 @@ def test_athena():
     df = Market.test_athena()
     print(df.columns)
 
-test_athena()
+def test_athena2(): 
+    df = Market.test_athena2()
+    print(df.columns)
+    print(df)
+test_athena2()
 #generate_sublog()
 #test_import()

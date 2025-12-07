@@ -14,6 +14,8 @@ import boto3
 
 import time
 
+import awswrangler as wr
+
 
 API_KEY = os.getenv("APCA_API_KEY_ID") 
 SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
@@ -53,6 +55,19 @@ class Market():
     latest_quote_date =None
     csv_path:str = None
 
+    @classmethod 
+    def test_athena2(cls): 
+        query = f"""
+            SELECT *
+            FROM "{ATHENA_DB}"."{ATHENA_TABLE}"
+            WHERE ticker IN ('NVDA', 'INTC')
+            LIMIT 100
+            """
+        df = wr.athena.read_sql_query(sql=query, database=ATHENA_DB)
+
+        return df
+
+
 
     @classmethod 
     def test_athena(cls): 
@@ -62,7 +77,7 @@ class Market():
             WHERE ticker IN ('NVDA', 'INTC')
             LIMIT 100
             """
-
+        wr.athena.read_sql_query(sql="QUERY", database="db")
         response = athena.start_query_execution(
             QueryString=query,
             QueryExecutionContext={"Database": ATHENA_DB},
