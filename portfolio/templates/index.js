@@ -22,7 +22,7 @@ submitButton.onclick = async (e) => {
     const text = JSON.parse(await file.text());
     const res = await axios.post("{{ api_route }}/portfolio", text);
     portfolioData = res.data["portfolio"] ?? [];
-    historicalData = res.data["historical"];
+    historicalData = res.data["historical"]["asset"];
     inputFileForm.style.display = "none";
 
     for (const data of portfolioData) {
@@ -41,18 +41,18 @@ submitButton.onclick = async (e) => {
         mainTable.appendChild(assetValue);
     }
 
+
+    const ratio = historicalData[0]["price close"] / SPDR["SPY"][0]["price close"];
+    console.log(ratio)
     data = [{
         x: SPDR["SPY"].map(x => x["date"]),
-        y: SPDR["SPY"].map(x => x["price close"]),
+        y: SPDR["SPY"].map(x => x["price close"] * ratio),
         name: "SPDR"
+    }, {
+        x: historicalData.map(x => x["date"]),
+        y: historicalData.map(x => x["price close"]),
+        name: "Asset"
     }];
-    for (const [k, v] of Object.entries(historicalData)) {
-        data.push({
-            x: v.map(x => x["date"]),
-            y: v.map(x => x["price close"]),
-            name: k
-        })
-    }
     
     Plotly.newPlot(mainChart, data, { margin: { t: 0 }});
 };

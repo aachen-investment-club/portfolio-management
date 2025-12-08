@@ -24,9 +24,8 @@ def portfolio():
     
     # Transform to JSON
     portfolio_data = Metrics.get_basic_metrics(df)
-    historical_data = Alpaca.get_historical_data(tickers)
+    historical_data = Alpaca.get_historical_net_asset_value(df)
     return {
-        "portfolio": json.loads(portfolio_data.to_json(orient="records")),
+        "portfolio": portfolio_data.to_dict(orient="records"),
         "historical": historical_data
     }
-    

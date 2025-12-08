@@ -21,7 +21,6 @@ class Alpaca:
             cls.ALPACA_SECRET_KEY
         )
 
-
         params = StockBarsRequest(
             symbol_or_symbols=tickers,
             timeframe=TimeFrame.Day,
@@ -38,3 +37,37 @@ class Alpaca:
             }, data[ticker]))
             res[ticker] = history
         return res
+    
+    @classmethod
+    def get_historical_net_asset_value(cls, portfolio: pd.DataFrame) -> dict:
+        client = StockHistoricalDataClient(
+            cls.ALPACA_KEY_ID,
+            cls.ALPACA_SECRET_KEY
+        )
+        tickers = list(portfolio["ticker"].unique())
+        params = StockBarsRequest(
+            symbol_or_symbols=tickers,
+            timeframe=TimeFrame.Day,
+            start=datetime.now() - timedelta(days=30)
+        )
+
+        data = client.get_stock_bars(params)
+        
+        df = pd.DataFrame(columns=["date", "price close", "ticker"])
+        for ticker in tickers:
+            history = pd.DataFrame(list(map(lambda x: {
+                "date": x.timestamp,
+                "price close": x.close,
+                "ticker": ticker
+            }, data[ticker])))
+            df = pd.concat([df, history])
+        df_merged = pd.merge(df, portfolio, how="left", on="ticker")
+        df_merged["price close"] = df_merged["price close"] * df_merged["shares"]
+        df_merged = df_merged.groupby("date").sum().reset_index()
+        df_merged["date"] = df_merged["date"].apply(lambda x: x.isoformat())
+        
+        return {
+            "asset": df_merged[["date", "price close"]].to_dict(orient="records")
+        }
+            
+
