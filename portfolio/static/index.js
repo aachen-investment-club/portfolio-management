@@ -20,9 +20,9 @@ submitButton.onclick = async (e) => {
 
     for (const data of portfolioData) {
         const ticker = document.createElement("div");
-        ticker.innerText = data["stock"];
+        ticker.innerText = data["ticker"];
         const currentPrice = document.createElement("div");
-        currentPrice.innerText = data["current"];
+        currentPrice.innerText = data["price close"];
         const shares = document.createElement("div");
         shares.innerText = data["shares"];
         const assetValue = document.createElement("div");

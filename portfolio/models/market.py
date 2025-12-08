@@ -10,18 +10,24 @@ import os
 
 from alpaca.data import  StockHistoricalDataClient , StockBarsRequest, TimeFrame, TimeFrameUnit
 from alpaca.trading.client import TradingClient, GetCalendarRequest
-import boto3
+from pandas.core.groupby.generic import DataFrameGroupBy
 
 import time
 
-import awswrangler as wr
 
+import boto3
+import awswrangler as wr
+from dotenv import load_dotenv
+load_dotenv()
+
+boto3.setup_default_session(
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+    region_name=os.getenv("AWS_REGION")
+)
 
 API_KEY = os.getenv("APCA_API_KEY_ID") 
 SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
-
-
-
 
 DATE = "date"
 TICKER = "ticker"
@@ -30,100 +36,22 @@ PRICE = "price close"
 stock_client = StockHistoricalDataClient(API_KEY,  SECRET_KEY)
 trading_client = TradingClient(API_KEY,  SECRET_KEY)
 
-
-
-athena = boto3.client("athena")
-#session = boto3.Session()
-#print(session.client("sts").get_caller_identity())
-
 US_TREASURY_API = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/"
-
-
-ATHENA_DB =  "portfolio-management-db"
-ATHENA_TABLE = "portfolio_management_developer"
-ATHENA_OUTPUT_LOCATION = "s3://athena-outputs-developer/athena/"
 
 
 class Market(): 
     """
     - quotes is a DataFrame with a multiindex of form Ticker (string), Date (datetime). 
-    -  
     """
-    universe: Set[str]= {}
-    trading_days : Set[pd.Timestamp] = {}
-    quotes: pd.DataFrame =None 
-    latest_quote_date =None
-    csv_path:str = None
-
-    @classmethod 
-    def test_athena2(cls): 
-        query = f"""
-            SELECT *
-            FROM "{ATHENA_DB}"."{ATHENA_TABLE}"
-            WHERE ticker IN ('NVDA', 'INTC')
-            LIMIT 100
-            """
-        df = wr.athena.read_sql_query(sql=query, database=ATHENA_DB)
-
-        return df
-
-
-
-    @classmethod 
-    def test_athena(cls): 
-        query = f"""
-            SELECT *
-            FROM "{ATHENA_DB}"."{ATHENA_TABLE}"
-            WHERE ticker IN ('NVDA', 'INTC')
-            LIMIT 100
-            """
-        wr.athena.read_sql_query(sql="QUERY", database="db")
-        response = athena.start_query_execution(
-            QueryString=query,
-            QueryExecutionContext={"Database": ATHENA_DB},
-            ResultConfiguration={"OutputLocation":  ATHENA_OUTPUT_LOCATION}
-        )
-        query_execution_id = response["QueryExecutionId"]
-
-        while True:
-            status = athena.get_query_execution(QueryExecutionId=query_execution_id)
-            state = status["QueryExecution"]["Status"]["State"]
-
-            if state in ["SUCCEEDED", "FAILED", "CANCELLED"]:
-                break
-
-            time.sleep(1)
-
-        if state == "SUCCEEDED":
-            results = athena.get_query_results(QueryExecutionId=query_execution_id)
-            rows = results["ResultSet"]["Rows"]
-            
-            columns = [col["VarCharValue"] for col in rows[0]["Data"]]
-
-            data = []
-            for row in rows[1:]:
-                data.append([col["VarCharValue"] for col in row["Data"]])
-
-            df = pd.DataFrame(data, columns=columns) 
-
-            df[DATE]= pd.to_datetime(df[DATE])
-            df= df.set_index([TICKER, DATE])
-                    
-            return df
-        else:
-            print("Query failed:", state)
-
-
-
-
-
-
+    ATHENA_DB =  "portfolio-management-db"
+    ATHENA_TABLE = "portfolio_management_developer"
+    ATHENA_OUTPUT_LOCATION = "s3://athena-outputs-developer/athena/"
+    
     @classmethod 
     def get_us_treasury_bonds(cls)-> pd.DataFrame: 
         """
         returns monthly 30 year treasury bonds 
         """
-
 
         endpoint = "v2/accounting/od/avg_interest_rates"
         today = str(dte.today())
@@ -194,9 +122,6 @@ class Market():
             print("market up to date")
             return 
             
-
-
-
     @staticmethod
     def is_trading_day(date:datetime)->bool: 
         request = GetCalendarRequest(start = date, end =date)
@@ -216,90 +141,69 @@ class Market():
     def get_latest_quotation_date(cls): 
         return cls.latest_quote_date
 
-
-
-
     @classmethod
     def get_price(cls, ticker: str, date: datetime.date)->np.float64: 
 
         date = pd.Timestamp(date)
         if ticker not in cls.universe:
             #:TODO: make this error more expressive (indicate whether ticker or date error)
-            raise TickerException("the selected ticker is not traded in the market")
+            raise Exception("the selected ticker is not traded in the market")
 
         if not cls.is_trading_day(date): #: this may also raise a more descriptive exception
-            raise TradingDayException("the selected date is not a trading date")
+            raise Exception("the selected date is not a trading date")
 
         if date not in cls.trading_days: 
-            raise DateException("the selected date is unavailable in the market") 
+            raise Exception("the selected date is unavailable in the market") 
 
         return cls.quotes.loc[(ticker, date), PRICE].iloc[0]
-
+    
     @classmethod
-    def get_latest_price(cls, ticker: str) -> np.float64: 
+    def get_historical_data(cls, tickers: List[str]) -> DataFrameGroupBy:
+        if len(tickers) == 0:
+            raise Exception("arg `ticker` must be at least of size 1")
         
-        today = cls.get_latest_quotation_date()  #: today is not finished yet
-        return cls.get_price(ticker, today)
+        tickers_dict = dict()
+        for i, ticker in enumerate(tickers):
+            tickers_dict[f'p{i}'] = ticker
+        
+        query = f"""
+            SELECT *
+            FROM "{cls.ATHENA_DB}"."{cls.ATHENA_TABLE}"
+            WHERE Date >= 2025-12-01 AND
+                ({" OR ".join(map(lambda x: f'ticker = :{x}', tickers_dict.keys()))})
+            ORDER BY Date
 
-
-
+        """ 
+        df = wr.athena.read_sql_query(
+            sql=query,
+            params=tickers_dict,
+            database=cls.ATHENA_DB
+        )
+        return df.groupby("ticker")
+    
     @classmethod
-    def init(cls, csv_path:str): 
-        cls.csv_path = csv_path
-        cls.load_from_csv(cls.csv_path,False)
-        cls.update_market() 
-
-    @classmethod 
-    def update_csv(cls): 
-        pass
-
-
-    @classmethod
-    def write_csv(cls): 
-        cls.quotes.to_csv(cls.csv_path)
-
-
-
-    @classmethod
-    def load_from_csv(
-            cls, 
-            path, 
-            original_mathis = False #: this is temporary
-        )->None: 
-
-        if original_mathis: 
-            data = pd.read_csv(path)
-            data[DATE]= pd.to_datetime(data[DATE])
-            data[TICKER]= data[TICKER].str.split(".").str[0] #: use this to convert yahoo finance/ refinitiv format to standard ticker naming.
-            df_new = data.set_index([TICKER, DATE])[[PRICE]]
-
-
-            cls.latest_quote_date = data[DATE].max()
-            cls.quotes = df_new
-            cls.trading_days = set(data[DATE])
-            cls.universe = set(data[TICKER].unique())
-        else: 
-            data = pd.read_csv(path)
-            data[DATE]= pd.to_datetime(data[DATE])
-            df_new = data.set_index([TICKER, DATE])[[PRICE]]
-            
-
-            cls.latest_quote_date = data[DATE].max()
-            cls.quotes = df_new
-            cls.trading_days = set(data[DATE])
-            cls.universe = set(data[TICKER].unique())
-
-
-
-
-
-class DateException(Exception): 
-    pass
-
-
-
-class TradingDayException(Exception): 
-    pass
-
-class TickerException(Exception): 
-    pass
+    def get_latest_price(cls, tickers: List[str]) ->  pd.DataFrame:
+        if len(tickers) == 0:
+            raise Exception("arg `ticker` must be at least of size 1")
+        
+        df = pd.DataFrame(columns=["ticker", "date", "price close"])
+        df = df.astype(dtype={
+            "ticker": "string",
+            "date": "datetime64[ms]",
+            "price close": "double"
+        })
+        for ticker in tickers:
+            query = f"""
+                SELECT *
+                FROM "{cls.ATHENA_DB}"."{cls.ATHENA_TABLE}"
+                WHERE ticker = :ticker
+                ORDER BY Date DESC
+                LIMIT 1
+            """
+            price_close = wr.athena.read_sql_query(
+                sql=query,
+                params={"ticker": ticker},
+                database=cls.ATHENA_DB
+            )  
+            df = pd.concat([df, price_close])
+        return df
