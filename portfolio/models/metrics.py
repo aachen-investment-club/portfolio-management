@@ -52,12 +52,12 @@ class Metrics:
 
     #return on investment 
     @staticmethod 
-    def get_ROI(prices: pd.Series) -> str: 
+    def get_ROI(prices: pd.Series) -> float: 
         start_price = prices.iloc[0]
         end_price = prices.iloc[-1]
 
         roi = (end_price - start_price) / start_price *100
-        return f"{roi:.2f}%"
+        return roi
     
 
     def get_CAGR(prices: pd.Series) -> float:
@@ -65,7 +65,7 @@ class Metrics:
         end_price = prices.iloc[-1]
 
         days = (prices.index[-1] - prices.index[0]).days
-        years = days / 365.0
+        years = days / 252.0
 
         if years == 0:
             return float("nan")
@@ -82,8 +82,8 @@ class Metrics:
     MDD is an asymmetric risk measure that focuses exclusively on losses.
     '''
     @staticmethod 
-    def get_maximum_drawdown(prices: pd.Series) -> str:
+    def get_maximum_drawdown(prices: pd.Series) -> float:
         rolling_max = prices.cummax()
         drawdowns = prices / rolling_max - 1
         mdd = drawdowns.min() * 100
-        return f"{mdd:.2f}%"
+        return mdd
