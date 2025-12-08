@@ -1,10 +1,13 @@
 const mainChart = document.getElementById('main-chart');
-const SPDR = {{ spdr }}
+const SPDR = {{ spdr }};
+let data = [{
+    x: SPDR["SPY"].map(x => x["date"]),
+    y: SPDR["SPY"].map(x => x["price close"]),
+    name: "SPDR"
+}];
 
 
-Plotly.newPlot(mainChart, [{
-x: [1, 2, 3, 4, 5],
-y: [1, 2, 4, 8, 16] }], {
+Plotly.react(mainChart, data, {
 margin: { t: 0 } } );
 
 const mainTable = document.getElementById('main-table');
@@ -17,8 +20,9 @@ let portfolioData = undefined;
 submitButton.onclick = async (e) => {
     const file = inputFile.files[0];
     const text = JSON.parse(await file.text());
-    const res = await axios.post("{{ api_route }}/api/portfolio", text);
-    portfolioData = res.data;
+    const res = await axios.post("{{ api_route }}/portfolio", text);
+    portfolioData = res.data["portfolio"] ?? [];
+    historicalData = res.data["historical"];
     inputFileForm.style.display = "none";
 
     for (const data of portfolioData) {
@@ -36,4 +40,19 @@ submitButton.onclick = async (e) => {
         mainTable.appendChild(shares);
         mainTable.appendChild(assetValue);
     }
+
+    data = [{
+        x: SPDR["SPY"].map(x => x["date"]),
+        y: SPDR["SPY"].map(x => x["price close"]),
+        name: "SPDR"
+    }];
+    for (const [k, v] of Object.entries(historicalData)) {
+        data.push({
+            x: v.map(x => x["date"]),
+            y: v.map(x => x["price close"]),
+            name: k
+        })
+    }
+    
+    Plotly.newPlot(mainChart, data, { margin: { t: 0 }});
 };
