@@ -1,13 +1,36 @@
 const mainChart = document.getElementById('main-chart');
-Plotly.newPlot(mainChart, [{
-x: [1, 2, 3, 4, 5],
-y: [1, 2, 4, 8, 16] }], {
-margin: { t: 0 } } );
 
 const mainTable = document.getElementById('main-table');
 const inputFileForm = document.getElementById('input-file-form');
 const submitButton = document.getElementById('submit-button');
 const inputFile = document.getElementById('input-file');
+const darkLayout = {
+    paper_bgcolor: '#3A3A3A',
+    plot_bgcolor: '#3A3A3A',
+    font: { color: 'white' },
+
+    xaxis: {
+        color: "#dddddd",
+        gridcolor: '#666'
+    },
+    yaxis: {
+        color: "#dddddd",
+        gridcolor: '#666'
+    },
+    legend: {
+        font: { color: 'white' },
+        bgcolor: '#3A3A3A'
+    }
+};
+const layout = {
+    ...darkLayout,
+    margin: { t: 0 }
+};
+
+Plotly.newPlot(mainChart, [{
+    x: [1, 2, 3, 4, 5],
+    y: [1, 2, 4, 8, 16]
+}], layout);
 
 let portfolioData = undefined;
 
@@ -33,4 +56,8 @@ submitButton.onclick = async (e) => {
         mainTable.appendChild(shares);
         mainTable.appendChild(assetValue);
     }
+
+    const maxDD = portfolioData[0].max_drawdown;  // TEMPORARY SOURCE
+    document.getElementById("kpi-maxdrawdown").innerText =
+        (maxDD * 100).toFixed(0) + "%";
 };

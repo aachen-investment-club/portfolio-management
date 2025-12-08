@@ -6,80 +6,70 @@
     </head>
     <body>
         <nav class="navbar navbar-expand-lg bg-body-tertiary container-fluid p-3">
-            <a class="navbar-brand" href="#">Portfolio Management</a>
+            <a class="navbar-brand" href="#">Dashboard</a>
         </nav>
 
 
         <main class="container-fluid bg-body-red p-5">
-            <div class="d-grid gap-3" style="grid-template-columns: 2fr 1fr;">
-                <div class="container-fluid p-3 rounded bg-dark-subtle"
-                    style="grid-row: 1 / span 2;">
+            <div class="d-grid gap-3" style="grid-template-columns: 3fr 1fr;">
+
+                <!-- MAIN CHART -->
+                <div class="container-fluid p-3 rounded bg-dark-subtle">
                     <div id="main-chart" class="container-fluid p-0"></div>
                 </div>
 
-                <div class="bg-dark-subtle container-fluid 
-                    rounded p-3 position-relative">
+                <!-- POSITIONS LIST  -->
+                <div class="bg-dark-subtle container-fluid rounded p-3">
+                    <h4>Positions</h4>
+                    <div id="positions-list">
+                        <!-- TO DO -->
+                        
+                    </div>
+                </div>
+
+            </div>
+            <h2 class="mt-5">Portfolio Metrics</h2>
+
+            <div class="d-grid gap-3" style="grid-template-columns: repeat(6, 1fr);">
+
+                <div class="bg-dark-subtle container-fluid rounded p-3">
+                    <h5>Total Return</h5>
+                    <h3 id="kpi-total-return">--</h3>
+                </div>
+
+                <div class="bg-dark-subtle container-fluid rounded p-3">
+                    <h5>CAGR</h5>
+                    <h3 id="kpi-cagr">--</h3>
+                </div>
+
+                <div class="bg-dark-subtle container-fluid rounded p-3">
+                    <h5>Volatility</h5>
+                    <h3 id="kpi-volatility">--</h3>
+                </div>
+
+                <div class="bg-dark-subtle container-fluid rounded p-3">
                     <h5>Sharpe Ratio</h5>
-                    <h1 class="position-absolute top-50 start-50 translate-middle">
-                        0.0
-                    </h1>
+                    <h3 id="kpi-sharpe">--</h3>
                 </div>
-                
-                <div class="bg-dark-subtle container-fluid 
-                    rounded p-3 position-relative">
-                    <h5>Net Asset Value</h5>
-                    <h1 class="position-absolute top-50 start-50 translate-middle">
-                        0.0
-                    </h1>
-                </div>
-                
-            </div>
 
-            <h2 class="mt-5">My Assets</h2>
-            <div id="main-table" 
-                class="d-grid container-fluid p-3 bg-dark-subtle rounded" 
-                style="grid-template-columns: 2fr repeat(3, 1fr);">
-                <div class="font-weight-bold border-bottom border-white">Stock</div>
-                <div class="font-weight-bold border-bottom border-white">Current</div>
-                <div class="font-weight-bold border-bottom border-white">Shares</div>
-                <div class="font-weight-bold border-bottom border-white">Asset Value</div>
+                <div class="bg-dark-subtle container-fluid rounded p-3">
+                    <h5>Jensen's Alpha</h5>
+                    <h3 id="kpi-jalpha">--</h3>
+                </div>
+                <div class="bg-dark-subtle container-fluid rounded p-3">
+                    <h5>Value at Risk</h5>
+                    <h3 id="kpi-var">--</h3>
+                </div>
 
-                <div id="input-file-form" 
-                    class="position-relative flex-column
-                    justify-content-center align-items-center" 
-                    style="grid-column: 1 / span 4; height: 10em;display: flex;">
-                    <input id="input-file" type="file" id="json-file"/>
+                <div class="bg-dark-subtle container-fluid rounded p-3">
+                    <h5>Max Drawdown</h5>
+                    <h3 id="kpi-maxdrawdown">--</h3>
+                </div>
 
-                    <button id="submit-button">Submit</button>
-                </div>
-            </div>
-
-            <h2 class="mt-5">My Metrics</h2>
-            <div class="d-grid gap-2" style="grid-template-columns: repeat(3, 1fr);">
-                <div class="bg-dark-subtle container-fluid 
-                    rounded p-3 position-relative"
-                    style="height: 10em;">
-                    <h5>Metric A</h5>
-                    <h1 class="position-absolute top-50 start-50 translate-middle">
-                        0.0
-                    </h1>
-                </div>
-                <div class="bg-dark-subtle container-fluid 
-                    rounded p-3 position-relative"
-                    style="height: 10em;">
-                    <h5>Metric B</h5>
-                    <h1 class="position-absolute top-50 start-50 translate-middle">
-                        0.0
-                    </h1>
-                </div>
-                <div class="bg-dark-subtle container-fluid 
-                    rounded p-3 position-relative"
-                    style="height: 10em;">
-                    <h5>Metric C</h5>
-                    <h1 class="position-absolute top-50 start-50 translate-middle">
-                        0.0
-                    </h1>
-                </div>
+                <div class="bg-dark-subtle container-fluid rounded p-3">
+                    <h5>Beta</h5>
+                    <h3 id="kpi-beta">--</h3>
+                </div>  
             </div>
         </main>
 
