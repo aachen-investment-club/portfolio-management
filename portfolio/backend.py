@@ -2,8 +2,11 @@ import os
 from flask import request
 
 import pandas as pd
+import json
+
 from models.metrics import Metrics
 from models.market import Market
+from models.alpaca import Alpaca
 
 from __main__ import app
 
@@ -21,6 +24,9 @@ def portfolio():
     
     # Transform to JSON
     portfolio_data = Metrics.get_basic_metrics(df)
-
-    return portfolio_data.to_json(orient="records")
+    historical_data = Alpaca.get_historical_data(tickers)
+    return {
+        "portfolio": json.loads(portfolio_data.to_json(orient="records")),
+        "historical": historical_data
+    }
     

@@ -1,4 +1,7 @@
 const mainChart = document.getElementById('main-chart');
+const SPDR = {{ spdr }}
+
+
 Plotly.newPlot(mainChart, [{
 x: [1, 2, 3, 4, 5],
 y: [1, 2, 4, 8, 16] }], {
@@ -14,7 +17,7 @@ let portfolioData = undefined;
 submitButton.onclick = async (e) => {
     const file = inputFile.files[0];
     const text = JSON.parse(await file.text());
-    const res = await axios.post("http://localhost:5000/api/portfolio", text);
+    const res = await axios.post("{{ api_route }}/api/portfolio", text);
     portfolioData = res.data;
     inputFileForm.style.display = "none";
 
