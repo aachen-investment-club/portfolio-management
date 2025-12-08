@@ -11,23 +11,26 @@
 
 
         <main class="container-fluid bg-body-red p-5">
-            <div class="d-grid gap-3" style="grid-template-columns: 3fr 1fr;">
+            <div class="row g-3">
 
-                <!-- MAIN CHART -->
-                <div class="container-fluid p-3 rounded bg-dark-subtle">
-                    <div id="main-chart" class="container-fluid p-0"></div>
-                </div>
-
-                <!-- POSITIONS LIST  -->
-                <div class="bg-dark-subtle container-fluid rounded p-3">
-                    <h4>Positions</h4>
-                    <div id="positions-list">
-                        <!-- TO DO -->
-                        
+                <!-- Main Chart -->
+                <div class="col-12 col-lg-8">
+                    <div class="container-fluid p-3 rounded bg-dark-subtle">
+                        <div id="main-chart" class="container-fluid p-0"></div>
                     </div>
                 </div>
 
+                <!-- Positions List -->
+                 <div class="col-12 col-lg-4">
+                    <div class="p-3 rounded bg-dark-subtle h-100">
+                        <h4>Positions</h4>
+                        <div id="positions-list" class="h-100">
+                            <!-- Positions will be dynamically added here -->
+                        </div>
+                    </div>
+                </div>
             </div>
+            
             <h2 class="mt-5">Portfolio Metrics</h2>
 
             <div class="d-grid gap-3" style="grid-template-columns: repeat(6, 1fr);">
