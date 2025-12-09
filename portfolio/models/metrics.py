@@ -2,10 +2,17 @@
 import pandas as pd
 import numpy as np
 
-from market import Market, PRICE
+from models.market import Market
 
 
 class Metrics: 
+
+    @staticmethod
+    def get_basic_metrics(assets: pd.DataFrame) -> pd.DataFrame:
+        prices = Market.get_latest_price(assets["ticker"].to_list())
+        df_merged = pd.merge(assets, prices, how="left", on="ticker")
+        df_merged["asset_value"] = df_merged["shares"] * df_merged["price close"]
+        return df_merged
 
 
 
