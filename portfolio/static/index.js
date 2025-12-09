@@ -30,7 +30,7 @@ const layout = {
 Plotly.newPlot(mainChart, [{
     x: [1, 2, 3, 4, 5],
     y: [1, 2, 4, 8, 16]
-}], layout, );
+}], layout, {responsive: true});
 
 let portfolioData = undefined;
 

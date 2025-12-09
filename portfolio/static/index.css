@@ -12,6 +12,20 @@ body {
     color: white !important;
 }
 
+@media (min-width: 1400px) {
+    .metrics-row {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+
+    .metric-item {
+        flex: none !important;
+        max-width: none !important;
+    }
+}
+
+
 .bg-dark-subtle {
     background-color: #4A4A4A !important;
     color: white !important;
