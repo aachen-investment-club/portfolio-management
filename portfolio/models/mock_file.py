@@ -69,7 +69,11 @@ def test2():
     print(Metrics.get_daily_returns(data))
     print(Metrics.get_daily_log_returns(data))
 
-test2()
+
+def test3(): 
+    print(Portfolio.list_portfolios())
+
+test3()
 
 #generate_sublog()
 #test_import()

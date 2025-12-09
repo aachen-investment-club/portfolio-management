@@ -44,6 +44,19 @@ class Market():
 
 
 
+    @classmethod
+    def get_ticker_lower_bound_quotes(cls, ticker: str, date_lower_bound: pd.Timestamp) -> pd.Series: 
+
+        data = data[data.index.get_level_values(TICKER)==ticker and
+                     data.index.get_level_values(DATE)>= date_lower_bound]
+        
+        return data[PRICE]
+
+
+
+
+
+
     @classmethod 
     def get_us_treasury_bonds(cls)-> pd.DataFrame: 
         """

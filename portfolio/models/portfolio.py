@@ -9,6 +9,7 @@ from datetime import date as dte
 import pandas as pd
 import json
 import os
+import boto3
 
 
 TR_TYPE = "type"
@@ -18,12 +19,44 @@ TR_VOLUME = "volume"
 TR_TICKER = "ticker"
 TR_TYPE= "type"
 
+
+
 class Portfolio(): 
     def __init__(self, cash:float, leverage_limit:float)-> None:
         self.cash: float = cash
         self.leverage_limit: float = leverage_limit
         self.trades:pd.DataFrame = None
         self.current_position ={} #: observation: we assume short selling in this implementation.
+
+
+
+    @staticmethod 
+    def list_portfolios():
+        client = boto3.client("s3")
+        bucket = "portfolio-management-developer"
+        prefix = "portfolios/"
+        objects=  client.list_objects_v2( Bucket = bucket, Prefix = prefix)
+
+        portfolios_names = [object["Key"] for object in objects["Contents"] if object["Key"]!= prefix]
+        
+        portfolios= []
+        for file_name in portfolios_names: 
+            response = client.get_object(
+                Bucket = bucket, 
+                Key = file_name
+            )
+            text = response["Body"].read().decode("utf-8")
+            log  = json.loads(text)
+            portfolios.append(log)
+        
+
+        return portfolios
+
+        
+            
+
+
+
 
 
 
@@ -48,7 +81,6 @@ class Portfolio():
                     TR_VOLUME:float(transaction["shares"]) 
                 })
 
-            #: TODO: consider the operation type; add options to reconstruct portfolio states.  
 
 
             self.trades= pd.DataFrame(rows)
@@ -95,7 +127,6 @@ class Portfolio():
     
     def summary(self)-> dict: 
         
-        #: TODO: extend this with positions (?)
         return {
             "cash": self.cash, 
             "gross_exposure": self.get_gross_exposure(), 
