@@ -1,6 +1,20 @@
+# Python environment
 env
 .env
 venv/
+.venv/
+
+# Python
+**/__pycache__/
+
+# VS Code
+.vscode/
+
+# Docs
+docs/_build/
+docs/_static/
+docs/_templates/
+
+# Data
 data/
-__pycache__
 .*.jpeg
