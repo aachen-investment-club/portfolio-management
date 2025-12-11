@@ -1,5 +1,6 @@
 from typing import List, Dict, Tuple
 
+#from portfolio.models.market import Market
 from market import Market
 
 from datetime import datetime, timedelta
@@ -91,17 +92,7 @@ class Portfolio():
    
 
 
-    def sell(self, product: str, quantity: int)-> bool: 
-        date = dte.today()
-        price = Market.get_latest_price(product)
-        delta_cash = price*quantity
-        new_cash = price *quantity 
-
-
-        #:TODO: figure out how sell works when having stocks bought at different points in time. 
-        #: maybe this function for the objective of the program does not make sense
-
-
+    
     def summary(self)-> dict: 
         
         #: TODO: extend this with positions (?)
@@ -111,7 +102,10 @@ class Portfolio():
             "net_asset_value": self.get_net_asset_value()
         }
 
+    
+
     def get_position(self, date:datetime)-> Tuple[Dict, float]: 
+        #: observation: we assume that past states comply with leverage, thus we dont check this
 
         sublog = self.trades[self.trades.index.get_level_values(TR_DATE)<= pd.Timestamp(date)]
         position = {}
@@ -128,7 +122,7 @@ class Portfolio():
                 lambda x: Market.get_price(x[TR_TICKER], x[TR_DATE] ), 
                 axis = 1
             )
-
+            
             purchases = operations[operations[TR_TYPE]== "PURCHASE"]
             purchases_cash = (purchases[TR_VOLUME]*purchases["close_price"]).sum()
 
@@ -143,12 +137,70 @@ class Portfolio():
         return position, total_cash
 
 
+
+    def check_leverage(self, new_cash, new_positions): 
+        gross = sum(abs(qty) * Market.get_latest_price(p) for p, qty in new_positions.items())
+        net_value = new_cash + sum(qty * Market.get_latest_price(p) for p, qty in new_positions.items())
+        leverage = gross / max(net_value, 1e-8)
+        return leverage <= self.leverage_limit
+
+    def get_current_leverage(self): 
+        gross = sum(abs(qty) * Market.get_latest_price(p) for p, qty in self.current_position.items())
+        net_value = self.cash+ sum(qty * Market.get_latest_price(p) for p, qty in self.current_position.items())
+        leverage = gross / max(net_value, 1e-8)
+        return leverage 
+
+
+
+    def sell(self, product: str, quantity: int, currency: str)-> bool: 
+        date = Market.get_latest_quotation_date()
+        price = Market.get_latest_price(product)
+        new_cash = price *quantity  + self.cash
+        new_position = self.current_position.copy()
+        new_position[product]  = new_position[product] - quantity
+
+        if not self.check_leverage(new_cash, new_position):
+            print("trade rejected - leverage limit surpassed")
+            return False
+    
+        new_row = pd.DataFrame (
+            {
+                TR_VOLUME: [quantity], 
+                TR_CURRENCY:[currency] , 
+                TR_TYPE: ["SALE"] 
+            }, 
+            index = pd.MultiIndex.from_tuples([(product, pd.Timestamp(date))], names = [TR_TICKER, TR_DATE])
+        )
+
+        self.current_position = new_position
+
+        self.cash = new_cash
+        self.trades= pd.concat([self.trades, new_row]).sort_index()
+
+        return True
+
+
+        #: maybe this function for the objective of the program does not make sense
+
+
+
+
     def buy(self, product:str, quantity: int , currency: str): 
-        date = dte.today()
+        date = Market.get_latest_quotation_date()
         price = Market.get_latest_price(product)
 
         cost = price* quantity
         new_cash = self.cash-cost 
+
+
+        new_position = self.current_position.copy()
+
+        new_position[product]+= quantity
+
+        if not self.check_leverage(new_cash, new_position): 
+            print("trade rejected - leverage limit surpassed")
+            return False
+
         new_row = pd.DataFrame (
             {
                 TR_VOLUME: [quantity], 
@@ -158,11 +210,7 @@ class Portfolio():
             index = pd.MultiIndex.from_tuples([(product, pd.Timestamp(date))], names = [TR_TICKER, TR_DATE])
         )
 
-        self.current_position[product]+= quantity
-
-
-        #: TODO: add leverage check?
-
+        self.current_position = new_position
 
         self.cash = new_cash
         self.trades= pd.concat([self.trades, new_row]).sort_index()
@@ -171,9 +219,3 @@ class Portfolio():
 
 
 
-
-# Market.init()
-# pf = Portfolio(10000, 100)
-# pf.import_from_json("./data/trades.json")
-# print(pf.current_position)
-# print(pf.cash)
