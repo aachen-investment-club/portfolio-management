@@ -7,6 +7,13 @@
     <body>
         <nav class="navbar navbar-expand-lg bg-body-tertiary container-fluid p-3">
             <a class="navbar-brand" href="#">Portfolio Management</a>
+            <!-- portfolio select dropdown -->
+            <div class="ms-auto d-flex gap-3 align-items-center">
+                <select id="portfolio-selector" class="form-select" style="width: auto;">
+                    <option value="">Select a portfolio...</option>
+                </select>
+                <button id="upload-new-button" class="btn btn-primary">Upload New</button>
+            </div>
         </nav>
 
 
@@ -89,6 +96,7 @@
 
         <script src="https://cdn.plot.ly/plotly-3.2.0.min.js" charset="utf-8"></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+        <!-- is /script/index.js correct? because there's no script folder -->
         <script src="/script/index.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     </body>
