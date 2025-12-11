@@ -2,8 +2,9 @@
 import pandas as pd
 import numpy as np
 
-from models.market import Market
+from market import Market, PRICE
 
+tradingDays: int = 252
 
 class Metrics: 
 
@@ -42,16 +43,58 @@ class Metrics:
         pass
 
 
-    @staticmethod 
-    def get_alpha(): 
-        pass
+    @staticmethod
+    def get_beta(portfolio_returns: pd.Series, benchmark_returns: pd.Series) -> float:
+        """
+        Calculates the Beta of the portfolio relative to a benchmark.
+        Beta = Cov(Rp, Rm) / Var(Rm)
+        
+        Args:
+            portfolio_returns: Series of daily portfolio returns.
+            benchmark_returns: Series of daily benchmark (e.g., SPY) returns.
+        """
+        # Align data by date to ensure we compare the same days
+        # This handles cases where one series might have missing dates
+        # Only dates where portfolio_returns and benchmark_returns have datapoints are kept
+        df = pd.concat([portfolio_returns, benchmark_returns], axis=1).dropna()
+        aligned_port_ret = df.iloc[:, 0]
+        aligned_bench_ret = df.iloc[:, 1]
+        
+        # Calculate Beta using Covariance/Variance matrix
+        # cov_matrix[0,1] is covariance, cov_matrix[1,1] is variance of benchmark
+        cov_matrix = np.cov(aligned_port_ret, aligned_bench_ret)
+        beta = cov_matrix[0, 1] / cov_matrix[1, 1]
+        
+        return beta
 
+    @staticmethod
+    def get_alpha(portfolio_returns: pd.Series, benchmark_returns: pd.Series, risk_free_rate: float = 0.0) -> float:
+        """
+        Calculates Jensen's Alpha (annualized).
+        Alpha = Rp - [Rf + Beta * (Rm - Rf)]
+        
+        Args:
+            portfolio_returns: Series of daily portfolio returns.
+            benchmark_returns: Series of daily benchmark (e.g., SPY) returns.
+            risk_free_rate: The annual risk-free rate (e.g., 0.04 for 4%). Defaults to 0.
+        """
+        # Align data
+        df = pd.concat([portfolio_returns, benchmark_returns], axis=1).dropna()
+        aligned_port_ret = df.iloc[:, 0]
+        aligned_bench_ret = df.iloc[:, 1]
 
-
-    @staticmethod 
-    def get_beta(): 
-        pass
-
+        # Calculate Beta
+        beta = Metrics.get_beta(aligned_port_ret, aligned_bench_ret)
+        
+        # Simple Annualization of average daily return
+        avg_port_ret = aligned_port_ret.mean() * tradingDays
+        avg_bench_ret = aligned_bench_ret.mean() * tradingDays
+        
+        # Jensen's Alpha
+        # Alpha = Portfolio Return - (Risk Free + Beta * (Benchmark Return - Risk Free))
+        alpha = avg_port_ret - (risk_free_rate + beta * (avg_bench_ret - risk_free_rate))
+        
+        return alpha
 
     @staticmethod 
     def get_value_at_risk(): 
