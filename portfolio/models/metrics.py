@@ -2,7 +2,7 @@
 import pandas as pd
 import numpy as np
 
-from models.market import Market
+from market import Market
 
 
 class Metrics: 

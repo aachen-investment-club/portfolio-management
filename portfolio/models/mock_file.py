@@ -77,6 +77,16 @@ def test_athena2():
     df = Market.test_athena2()
     print(df.columns)
     print(df)
-test_athena2()
+
+
+def test_market():
+
+    #print(Market.get_historical_data(["NVDA"]).head())
+    day= datetime.datetime(2025, 11, 11)
+    #print(Market.get_price("NVDA", day))
+    print(Market.get_historical_data([ "NVDA"]))
+    #print(Market.get_traded_assets())
+
+test_market()
 #generate_sublog()
 #test_import()

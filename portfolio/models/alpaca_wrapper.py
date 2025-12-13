@@ -14,6 +14,34 @@ class Alpaca:
     ALPACA_KEY_ID = os.getenv("APCA_API_KEY_ID")
     ALPACA_SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
 
+
+    @classmethod 
+    def get_bars_time_range(cls, tickers, start, end): 
+        client = StockHistoricalDataClient(
+            cls.ALPACA_KEY_ID,
+            cls.ALPACA_SECRET_KEY
+        )
+
+        request_params= StockBarsRequest(
+            symbol_or_symbols=tickers, 
+            timeframe=TimeFrame.Day, 
+            start= start, #: inclusive
+            end = end# non inclusive; add one because of this
+        )
+        bars = client.get_stock_bars(request_params)
+
+        if bars:  
+            return bars
+        return None
+
+
+
+
+
+
+
+
+
     @classmethod
     def get_historical_data(cls, tickers: List[str]) -> dict:
         client = StockHistoricalDataClient(
