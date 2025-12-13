@@ -57,12 +57,40 @@ class Metrics:
     def get_value_at_risk(): 
         pass
 
-
+    #return on investment 
     @staticmethod 
-    def get_ROI(): 
-        pass
+    def get_ROI(prices: pd.Series) -> float: 
+        start_price = prices.iloc[0]
+        end_price = prices.iloc[-1]
 
+        roi = (end_price - start_price) / start_price *100
+        return roi
+    
 
+    def get_CAGR(prices: pd.Series) -> float:
+        start_price = prices.iloc[0]
+        end_price = prices.iloc[-1]
+
+        days = (prices.index[-1] - prices.index[0]).days
+        years = days / 252.0
+
+        if years == 0:
+            return float("nan")
+
+        cagr = (end_price / start_price) ** (1 / years) - 1
+        return cagr * 100  
+    ''' 
+    The Maximum Drawdown (MDD) measures the largest percentage loss an asset 
+    would have experienced over a given period, calculated from the highest price
+    to the subsequent lowest price.
+    It is an important metric for assessing downside risk, indicating how much an
+    investor could have lost in the worst-case scenario. A lower MDD value reflects lower loss risk.
+    Unlike volatility, which accounts for both upward and downward movements, 
+    MDD is an asymmetric risk measure that focuses exclusively on losses.
+    '''
     @staticmethod 
-    def get_maximum_dropdown(): 
-        pass
+    def get_maximum_drawdown(prices: pd.Series) -> float:
+        rolling_max = prices.cummax()
+        drawdowns = prices / rolling_max - 1
+        mdd = drawdowns.min() * 100
+        return mdd
