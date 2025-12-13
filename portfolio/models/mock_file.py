@@ -73,7 +73,15 @@ def test2():
 def test3(): 
     print(Portfolio.list_portfolios())
 
-test3()
+# test3()
+def test_athena(): 
+    df = Market.test_athena()
+    print(df.columns)
 
+def test_athena2(): 
+    df = Market.test_athena2()
+    print(df.columns)
+    print(df)
+# test_athena2()
 #generate_sublog()
 #test_import()
