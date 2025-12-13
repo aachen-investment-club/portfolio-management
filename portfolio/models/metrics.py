@@ -8,6 +8,28 @@ tradingDays: int = 252
 
 class Metrics: 
 
+
+    @staticmethod 
+    def get_bonds_returns(start_date = None, end_date = None): 
+        data = Market.get_us_treasury_bonds()
+        data.index = pd.to_datetime(data.index)
+        print(data.index.dtype)
+
+        if start_date is not None:
+            start_date = pd.Timestamp(start_date)
+            data = data.loc[data.index>= start_date]
+
+        if end_date is not None:
+            end_date = pd.Timestamp(end_date)
+            data = data.loc[data.index<=end_date]
+
+        return Metrics.get_daily_returns(data['Rate'])
+
+
+
+
+
+
     @staticmethod
     def get_basic_metrics(assets: pd.DataFrame) -> pd.DataFrame:
         prices = Market.get_latest_price(assets["ticker"].to_list())
@@ -34,13 +56,24 @@ class Metrics:
 
 
     @staticmethod 
-    def get_annual_volatility(): 
-        pass
+    def get_annual_volatility(returns: pd.Series, periods_per_year: int = 252) -> float: 
+        annual_vol = returns.std() * np.sqrt(periods_per_year)
+        return annual_vol
 
 
     @staticmethod 
-    def get_sharpe_ratio(): 
-        pass
+    def get_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0, periods_per_year: int = 252) -> float:
+        norm_risk_free_rate = risk_free_rate / periods_per_year # normalize the annual risk free rate as per the number of trading days in a year
+        excess_returns = returns - norm_risk_free_rate 
+        excess_returns_mean = excess_returns.mean()
+        excess_returns_std = excess_returns.std()
+        
+        if excess_returns_std == 0: # check for division by zero error
+            return float('nan')
+        
+        sharpe_ratio_annual = (excess_returns_mean / excess_returns_std) * np.sqrt(1 / periods_per_year)
+        
+        return sharpe_ratio_annual
 
 
     @staticmethod
@@ -97,8 +130,34 @@ class Metrics:
         return alpha
 
     @staticmethod 
-    def get_value_at_risk(): 
-        pass
+    def get_value_at_risk(returns: pd.Series, portfolio_weights: np.ndarray,  days_horizon: int = 10, n_simulations: int = 10000, CL: float = 0.95, portfolio_value: float = 100.0):
+        # returns : multi asset returns not for single asset
+        
+        # time period for which future is simulated  : days_horizon
+        mean_returns = returns.mean() 
+        sigma_returns = returns.std()
+        covmat_returns = returns.cov().values()
+        weights = np.array(portfolio_weights)
+
+        L = np.linalg.cholesky(covmat_returns) # Cholesky decomposition creates correlated random variables based on the covmat
+        
+        stochastic_returns = np.zeros(n_simulations)
+        
+        for i in range(n_simulations):
+            cumulative_returns = 0.0
+            for _ in range(days_horizon):
+                rand_vec = np.random.normal(size=(len(mean_returns), 1))
+                corr_returns = mean_returns + L @ rand_vec
+                daily_returns = float(weights.T @ corr_returns)  # convert to a scalar portfolio return for that day
+                cumulative_returns = cumulative_returns + daily_returns
+            stochastic_returns[i] = cumulative_returns
+        
+        confidence_interval = CL * 100
+        stochastic_losses = - portfolio_value * stochastic_returns
+        
+        VaR = np.percentile (stochastic_losses, confidence_interval)
+        
+        return VaR
 
     #return on investment 
     @staticmethod 
