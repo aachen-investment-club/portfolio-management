@@ -11,6 +11,7 @@ import os
 from alpaca.data import  StockHistoricalDataClient , StockBarsRequest, TimeFrame, TimeFrameUnit
 from alpaca.trading.client import TradingClient, GetCalendarRequest
 from pandas.core.groupby.generic import DataFrameGroupBy
+from alpaca_wrapper import Alpaca
 
 import time
 
@@ -44,8 +45,49 @@ class Market():
     - quotes is a DataFrame with a multiindex of form Ticker (string), Date (datetime). 
     """
     ATHENA_DB =  "portfolio-management-db"
-    ATHENA_TABLE = "portfolio_management_developer"
+    ATHENA_TABLE = "developer_market_data"
     ATHENA_OUTPUT_LOCATION = "s3://athena-outputs-developer/athena/"
+    universe = None
+    trading_days = None
+
+    @classmethod 
+    def get_traded_assets(cls): 
+        if not cls.universe: 
+            query = f"""
+                SELECT DISTINCT  {TICKER}
+                FROM "{cls.ATHENA_DB}"."{cls.ATHENA_TABLE}"
+                """
+            assets = wr.athena.read_sql_query(
+                sql=query,
+                database=cls.ATHENA_DB, 
+                ctas_approach=False
+
+            )  
+            cls.universe = list(assets[TICKER])
+        
+        return cls.universe
+
+    @classmethod 
+    def get_trading_days(cls): 
+        if not cls.trading_days: 
+            query = f"""
+                SELECT DISTINCT  {DATE}
+                FROM "{cls.ATHENA_DB}"."{cls.ATHENA_TABLE}"
+                """
+            dates= wr.athena.read_sql_query(
+                sql=query,
+                database=cls.ATHENA_DB, 
+                ctas_approach=False
+
+            )  
+            dates[DATE]= pd.to_datetime(dates[DATE])
+            cls.trading_days = list(dates[DATE])
+
+        
+        return cls.trading_days
+
+
+
     
     @classmethod 
     def get_us_treasury_bonds(cls)-> pd.DataFrame: 
@@ -95,14 +137,8 @@ class Market():
             print("updating market...")
 
             stocks = list(cls.universe)
-            request_params= StockBarsRequest(
-                symbol_or_symbols=stocks, 
-                timeframe=TimeFrame.Day, 
-                start= cls.latest_quote_date+timedelta(1), #: inclusive
-                end =expected_latest_quote+timedelta(1)# non inclusive; add one because of this
-            )
-            bars = stock_client.get_stock_bars(request_params)
 
+            bars =Alpaca.get_bars_time_range(stocks, cls.latest_quote_date+timedelta(1), expected_latest_quote+timedelta(1)) 
         
             if bars:  
 
@@ -137,28 +173,37 @@ class Market():
             today = today+ timedelta(days = -1)
         return today
 
-    @classmethod
-    def get_latest_quotation_date(cls): 
-        return cls.latest_quote_date
 
     @classmethod
     def get_price(cls, ticker: str, date: datetime.date)->np.float64: 
 
         date = pd.Timestamp(date)
-        if ticker not in cls.universe:
+        if ticker not in cls.get_traded_assets():
             #:TODO: make this error more expressive (indicate whether ticker or date error)
             raise Exception("the selected ticker is not traded in the market")
 
         if not cls.is_trading_day(date): #: this may also raise a more descriptive exception
             raise Exception("the selected date is not a trading date")
 
-        if date not in cls.trading_days: 
+        if date not in cls.get_trading_days(): 
             raise Exception("the selected date is unavailable in the market") 
 
-        return cls.quotes.loc[(ticker, date), PRICE].iloc[0]
+        
+        query = f"""
+            SELECT *
+            FROM "{cls.ATHENA_DB}"."{cls.ATHENA_TABLE}"
+            WHERE "{TICKER}"='{ticker}' AND "{DATE}"= DATE'{date.date()}'
+            """
+        result= wr.athena.read_sql_query(
+            sql=query,
+            database=cls.ATHENA_DB, 
+            ctas_approach=False
+        )  
+
+        return result.iloc[0]
     
     @classmethod
-    def get_historical_data(cls, tickers: List[str]) -> DataFrameGroupBy:
+    def get_historical_data(cls, tickers: List[str]) -> pd.DataFrame:
         if len(tickers) == 0:
             raise Exception("arg `ticker` must be at least of size 1")
         
@@ -166,20 +211,20 @@ class Market():
         for i, ticker in enumerate(tickers):
             tickers_dict[f'p{i}'] = ticker
         
+        today = dte.today()
         query = f"""
             SELECT *
             FROM "{cls.ATHENA_DB}"."{cls.ATHENA_TABLE}"
-            WHERE Date >= 2025-12-01 AND
-                ({" OR ".join(map(lambda x: f'ticker = :{x}', tickers_dict.keys()))})
-            ORDER BY Date
+            WHERE {DATE} <= DATE '{today}' AND {TICKER} IN 
+                ({", ".join(f"'{t}'" for t in tickers)})
+            ORDER BY {DATE} 
 
         """ 
         df = wr.athena.read_sql_query(
             sql=query,
-            params=tickers_dict,
             database=cls.ATHENA_DB
         )
-        return df.groupby("ticker")
+        return df
     
     @classmethod
     def get_latest_price(cls, tickers: List[str]) ->  pd.DataFrame:
@@ -190,19 +235,18 @@ class Market():
         df = df.astype(dtype={
             "ticker": "string",
             "date": "datetime64[ms]",
-            "price close": "double"
+            "price close": "float64"
         })
         for ticker in tickers:
             query = f"""
                 SELECT *
                 FROM "{cls.ATHENA_DB}"."{cls.ATHENA_TABLE}"
-                WHERE ticker = :ticker
-                ORDER BY Date DESC
+                WHERE "{TICKER}" = '{ticker}'
+                ORDER BY "{DATE}" DESC
                 LIMIT 1
             """
             price_close = wr.athena.read_sql_query(
                 sql=query,
-                params={"ticker": ticker},
                 database=cls.ATHENA_DB
             )  
             df = pd.concat([df, price_close])
