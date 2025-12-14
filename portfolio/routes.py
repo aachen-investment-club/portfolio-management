@@ -2,7 +2,7 @@ from __main__ import app
 
 import os
 
-from models.alpaca import Alpaca
+from models.alpaca_wrapper import Alpaca
 
 from flask import Flask
 from flask import render_template

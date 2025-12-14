@@ -2,7 +2,7 @@
 import pandas as pd
 import numpy as np
 
-from market import Market, PRICE
+from models.market import Market, PRICE
 
 tradingDays: int = 252
 

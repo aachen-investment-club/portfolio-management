@@ -11,7 +11,7 @@ import os
 from alpaca.data import  StockHistoricalDataClient , StockBarsRequest, TimeFrame, TimeFrameUnit
 from alpaca.trading.client import TradingClient, GetCalendarRequest
 from pandas.core.groupby.generic import DataFrameGroupBy
-from alpaca_wrapper import Alpaca
+from models.alpaca_wrapper import Alpaca
 
 import time
 
