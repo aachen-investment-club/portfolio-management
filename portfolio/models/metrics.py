@@ -57,15 +57,15 @@ class Metrics:
         pass
 
 
-    @staticmethod 
-    def get_value_at_risk(returns: pd.Series, days_horizon: int = 10, n_simulations: int = 10000, portfolio_weights: np.ndarray, CL: float = 0.95, portfolio_value: float = 100.0):
+        @staticmethod 
+    def get_value_at_risk(returns: pd.Series, portfolio_weights: np.ndarray, days_horizon: int = 7, n_simulations: int = 10000, CL: float = 0.95, portfolio_value: float = 1000.0):
         # returns : multi asset returns not for single asset
         
         # time period for which future is simulated  : days_horizon
-        mean_returns = returns.mean() 
-        sigma_returns = returns.std()
-        covmat_returns = returns.cov().values()
+        mean_returns = returns.mean().values.reshape(-1, 1)
+        covmat_returns = returns.cov().values
         weights = np.array(portfolio_weights)
+        weights = weights.reshape(-1, 1)
 
         L = np.linalg.cholesky(covmat_returns) # Cholesky decomposition creates correlated random variables based on the covmat
         
