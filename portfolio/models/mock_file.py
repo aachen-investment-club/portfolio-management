@@ -77,6 +77,42 @@ def test_athena2():
     df = Market.test_athena2()
     print(df.columns)
     print(df)
-test_athena2()
+
+
+def test_market():
+
+    #print(Market.get_historical_data(["NVDA"]).head())
+    day1= datetime.datetime(2025, 8, 1).date()
+    day2= datetime.datetime(2025, 11, 10).date()
+    #print(Market.get_price("NVDA", day))
+    #print(Market.get_historical_data([ "NVDA"]))
+    #print(Market.get_us_treasury_bonds())
+    #print(Market.get_traded_assets())
+    #print(Metrics.get_bonds_returns())
+    print(Metrics.get_bonds_returns(day1, day2))
+
+
+
+def test_sharpe():
+    day1= datetime.datetime(2025, 1, 1).date()
+    day2= datetime.datetime(2025, 11, 10).date()
+
+    bond_returns = Metrics.get_bonds_returns(day1, day2)
+    print(Metrics.get_sharpe_ratio(bond_returns))
+
+
+def test_beta():
+    day1= datetime.datetime(2015, 1, 1).date()
+    day2= datetime.datetime(2025, 11, 10).date()
+    nvida_data = Market.get_historical_data(["NVDA"])
+    nvida_returns = Metrics.get_daily_returns(nvida_data[PRICE])
+    bond_returns = Metrics.get_bonds_returns(day1, day2)
+
+    print(Metrics.get_sharpe_ratio(bond_returns))
+    print(Metrics.get_beta(portfolio_returns=nvida_returns, benchmark_returns=bond_returns))
+
+
+test_sharpe()
+test_beta()
 #generate_sublog()
 #test_import()
