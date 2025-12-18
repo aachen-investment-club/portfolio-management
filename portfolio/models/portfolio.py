@@ -1,7 +1,6 @@
 from typing import List, Dict, Tuple
 
-#from portfolio.models.market import Market
-from market import Market
+from models.market import Market
 
 from datetime import datetime, timedelta
 from datetime import date as dte
@@ -24,8 +23,6 @@ class Portfolio():
         self.leverage_limit: float = leverage_limit
         self.trades:pd.DataFrame = None
         self.current_position ={} #: observation: we assume short selling in this implementation.
-
-
 
     def import_from_json(self, path): 
         """
@@ -89,10 +86,12 @@ class Portfolio():
     def get_net_asset_value(self) -> float: 
         return self.cash+ self.get_gross_exposure()
 
-   
-
-
-    
+    def get_historical_net_asset_value(self) -> dict:
+        tickers = list(map(lambda x: x[TR_TICKER], self.trades))
+        df = Market.get_historical_data(tickers)
+        
+            
+        
     def summary(self)-> dict: 
         
         #: TODO: extend this with positions (?)
