@@ -15,7 +15,6 @@ def health():
 def index():
     return render_template("index.html", api_route=os.getenv("API_ROUTE"))
 
-#is /script/index.js correct? because there's no script folder
 @app.route("/script/index.js")
 def scriptIndex():
     spdr = Alpaca.get_historical_data(["SPY"])
