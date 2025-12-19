@@ -6,7 +6,7 @@ import json
 
 from models.metrics import Metrics
 from models.market import Market
-from models.alpaca import Alpaca
+from models.alpaca_wrapper import Alpaca
 
 from __main__ import app
 

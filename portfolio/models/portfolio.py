@@ -1,7 +1,7 @@
 from typing import List, Dict, Tuple
 
 #from portfolio.models.market import Market
-from market import Market
+from models.market import Market, DATE, TICKER
 
 from datetime import datetime, timedelta
 from datetime import date as dte
@@ -9,7 +9,7 @@ from datetime import date as dte
 import pandas as pd
 import json
 import os
-
+import boto3
 
 TR_TYPE = "type"
 TR_CURRENCY = "currency"
@@ -24,6 +24,178 @@ class Portfolio():
         self.leverage_limit: float = leverage_limit
         self.trades:pd.DataFrame = None
         self.current_position ={} #: observation: we assume short selling in this implementation.
+        self.initial_cash = cash
+
+
+
+    def get_position_weights(self): 
+        total = 0 
+        for value in self.current_position.values(): 
+            total+=  value
+        position_weights = [{"symbol": symbol, "weight": position/ total} for symbol, position in self.current_position.items() if position!= 0 ]
+        return position_weights
+
+
+
+    def _signed_trades(self) -> pd.DataFrame:
+        trades = self.trades.reset_index()
+
+        trades["signed_qty"] = trades.apply(
+            lambda r: r[TR_VOLUME] if r[TR_TYPE] == "PURCHASE" else -r[TR_VOLUME],
+            axis=1
+        )
+
+        return trades[[TR_DATE, TR_TICKER, "signed_qty"]]
+
+
+    def get_positions_ts(self) -> pd.DataFrame:
+        trades = self._signed_trades()
+
+        daily_flows = (
+            trades
+            .groupby([TR_DATE, TR_TICKER])["signed_qty"]
+            .sum()
+            .unstack(fill_value=0)
+        )
+
+        trading_days = pd.to_datetime(Market.get_trading_days()).normalize()
+
+        daily_flows = (
+            daily_flows
+            .reindex(trading_days, fill_value=0)
+            .sort_index()
+        )
+
+        positions = daily_flows.cumsum()
+        positions = positions.sort_index() 
+        return positions
+
+    def get_prices_ts(self) -> pd.DataFrame:
+        tickers = self.trades.index.get_level_values(TR_TICKER).unique().tolist()
+
+        market = Market.get_historical_data(tickers)
+
+        prices = (
+            market
+            .pivot_table(
+                index=DATE,
+                columns=TICKER,
+                values="price close",
+                aggfunc="last"
+            )
+            .sort_index()
+        )
+
+        prices.index = pd.to_datetime(prices.index).normalize()
+        return prices
+
+  
+
+
+    def get_cash_ts(self, dates: pd.Index) -> pd.Series:
+        trades = self.trades.reset_index()
+
+        prices = self.get_prices_ts()
+
+        trades["cash_flow"] = trades.apply(
+            lambda r: (
+                -r[TR_VOLUME] * prices.loc[pd.Timestamp(r[TR_DATE]).normalize(), r[TR_TICKER]]
+                if r[TR_TYPE] == "PURCHASE"
+                else r[TR_VOLUME] * prices.loc[pd.Timestamp(r[TR_DATE]).normalize(), r[TR_TICKER]]
+            ),
+            axis=1
+        )
+
+        daily_cash_flow = (
+            trades
+            .groupby(TR_DATE)["cash_flow"]
+            .sum()
+            .reindex(dates, fill_value=0)
+            .cumsum()
+        )
+
+        return self.initial_cash + daily_cash_flow
+
+
+
+    def get_daily_nav(self) -> pd.Series:
+        positions = self.get_positions_ts()
+        prices = self.get_prices_ts()
+
+        # Canonicalize indices
+        positions.index = pd.to_datetime(positions.index).normalize()
+        prices.index = pd.to_datetime(prices.index).normalize()
+
+        # Align positions to price calendar
+        positions = positions.reindex(prices.index, method="ffill").fillna(0)
+
+        market_value = (positions * prices).sum(axis=1)
+        cash = self.get_cash_ts(prices.index)
+
+        nav = market_value + cash
+        nav.name = "NAV"
+
+        return nav
+
+
+ 
+
+
+
+    @staticmethod 
+    def list_portfolios():
+        client = boto3.client("s3")
+        bucket = "portfolio-management-developer"
+        prefix = "portfolios/"
+        objects=  client.list_objects_v2( Bucket = bucket, Prefix = prefix)
+
+        portfolios_names = [object["Key"] for object in objects["Contents"] if object["Key"]!= prefix]
+
+        portfolios= {}
+        for file_name in portfolios_names: 
+            response = client.get_object(
+                Bucket = bucket, 
+                Key = file_name
+            )
+            text = response["Body"].read().decode("utf-8")
+            log  = json.loads(text)
+            portfolios[file_name]= log
+
+
+        return portfolios
+
+
+    def import_from_dict(self, data): 
+        """
+        imports a FULL trades log and: 
+        - saves the trades 
+        - updates the current position
+        - updates current cash
+        """
+
+        rows = []
+
+        for transaction in data["transactions"]: 
+            rows.append({
+                TR_TICKER:transaction["security"]["ticker"], 
+                TR_CURRENCY:transaction["currency"], 
+                TR_TYPE:transaction["type"],
+                TR_DATE:pd.Timestamp(transaction["date"]), 
+                TR_VOLUME:float(transaction["shares"]) 
+            })
+
+        #: TODO: consider the operation type; add options to reconstruct portfolio states.  
+
+
+        self.trades= pd.DataFrame(rows)
+        self.trades=self.trades.set_index([TR_TICKER, TR_DATE]).sort_index()
+        
+        today = dte.today()
+        self.current_position, self.cash = self.get_position(dte.today())
+
+
+
+
 
 
 
@@ -92,6 +264,7 @@ class Portfolio():
    
 
 
+
     
     def summary(self)-> dict: 
         
@@ -116,10 +289,9 @@ class Portfolio():
             operations = sublog[sublog.index.get_level_values(TR_TICKER)== asset]
             operations = operations.reset_index()
             
-            #print(operations)
             #print(operations.columns)
             operations["close_price"] = operations.apply(
-                lambda x: Market.get_price(x[TR_TICKER], x[TR_DATE] ), 
+                lambda x: Market.get_price(x[TR_TICKER], x[TR_DATE] )["price close"], 
                 axis = 1
             )
             

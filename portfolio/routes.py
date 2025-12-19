@@ -2,10 +2,13 @@ from __main__ import app
 
 import os
 
-from models.alpaca import Alpaca
+from models.alpaca_wrapper import Alpaca
+from models.market import Market
+from models.portfolio import Portfolio
 
 from flask import Flask
 from flask import render_template
+from flask import request
 
 @app.route("/health")
 def health():
@@ -13,10 +16,58 @@ def health():
 
 @app.route("/")
 def index():
-    return render_template("index.html", api_route=os.getenv("API_ROUTE"))
+
+
+    portfolios = Portfolio.list_portfolios()
+
+    selected_key = request.args.get("portfolio")
+
+
+    if not portfolios : 
+        selected_key = None
+        selected_data = None
+
+    else: 
+        if selected_key not in portfolios: 
+            selected_key= next(iter(portfolios))
+        selected_data = portfolios[selected_key]
+
+
+    portfolio = Portfolio(100000, 100000)
+
+    portfolio.import_from_dict(selected_data)
+
+
+
+    portfolio_metrics = {
+        "total_return": "12.4%",
+        "cagr": "8.1%",
+        "volatility": "14.3%",
+        "sharpe": 1.25,
+        "beta": 0.92
+    }
+    positions= portfolio.get_position_weights()
+
+    nav = portfolio.get_daily_nav() 
+    print(nav.shape)
+    
+    #: has to be converted to a list of dicts for json 
+    nav_ts = [
+        {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}
+        for d, v in nav.items()
+    ]
+
+    return render_template(
+        "index.html", 
+        portfolios = portfolios, 
+        selected_key = selected_key, 
+        metrics=portfolio_metrics,
+        positions=positions, 
+        nav_ts=nav_ts,          # 👈 PASS NAV HERE
+        api_route=os.getenv("API_ROUTE"), 
+    )
 
 @app.route("/script/index.js")
 def scriptIndex():
-    spdr = Alpaca.get_historical_data(["SPY"])
 
-    return render_template("index.js", spdr=spdr, api_route=os.getenv("API_ROUTE"))
+    return render_template("index.js",  api_route=os.getenv("API_ROUTE"))
