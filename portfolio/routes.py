@@ -2,13 +2,22 @@ from __main__ import app
 
 import os
 
+import pandas as pd
 from models.alpaca_wrapper import Alpaca
-from models.market import Market
 from models.portfolio import Portfolio
 
 from flask import Flask
 from flask import render_template
 from flask import request
+from models.market import Market
+
+from schemas.market import Base
+from utils.aws_config import engine
+
+Base.metadata.create_all(engine)
+
+
+
 
 @app.route("/health")
 def health():
@@ -17,6 +26,10 @@ def health():
 @app.route("/")
 def index():
 
+
+    perform = False 
+    if perform: 
+        Market.load_from_csv("./data/sp500_close_current.csv")
 
     portfolios = Portfolio.list_portfolios()
 
@@ -49,7 +62,6 @@ def index():
     positions= portfolio.get_position_weights()
 
     nav = portfolio.get_daily_nav() 
-    print(nav.shape)
     
     #: has to be converted to a list of dicts for json 
     nav_ts = [
@@ -63,9 +75,12 @@ def index():
         selected_key = selected_key, 
         metrics=portfolio_metrics,
         positions=positions, 
-        nav_ts=nav_ts,          # 👈 PASS NAV HERE
+        nav_ts=nav_ts,         
         api_route=os.getenv("API_ROUTE"), 
     )
+
+
+
 
 @app.route("/script/index.js")
 def scriptIndex():
