@@ -68,6 +68,7 @@ axios.get("/api/portfolio/metrics")
     document.getElementById("kpi-beta").innerText = m.beta.toFixed(2);
     document.getElementById("kpi-jalpha").innerText = `${m.alpha.toFixed(2)}%`;
     document.getElementById("kpi-maxdrawdown").innerText = `${m.max_drawdown.toFixed(2)}%`;
+    document.getElementById("kpi-var").innerText = `${m.value_at_risk.toFixed(2)}`;
   });
 
   axios.get("/api/portfolio/positions")

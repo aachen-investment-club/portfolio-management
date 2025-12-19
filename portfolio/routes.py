@@ -45,6 +45,10 @@ def portfolio_metrics():
     })
     historical_data = Alpaca.get_historical_net_asset_value(portfolio)
 
+    portfolio_data = Alpaca.get_historical_data(
+            portfolio["ticker"].to_list()
+            )
+
     port_df = pd.DataFrame(historical_data)
     bench_df = pd.DataFrame(spdr["SPY"])
 
@@ -65,6 +69,8 @@ def portfolio_metrics():
 
     port_returns = Metrics.get_daily_returns(port_series)
     bench_returns = Metrics.get_daily_returns(bench_series)
+    port_weights = Metrics.get_portfolio_weights(
+            portfolio, portfolio_data)
 
     metrics = {
         "total_return": Metrics.get_ROI(port_series),
@@ -74,7 +80,8 @@ def portfolio_metrics():
         "max_drawdown": Metrics.get_maximum_drawdown(port_series),
         "beta": Metrics.get_beta(port_returns, bench_returns),
         "alpha": Metrics.get_alpha(port_returns, bench_returns),
-        "total_value": float(port_series.iloc[-1])
+        "total_value": float(port_series.iloc[-1]),
+        "value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
     }
 
     return jsonify(metrics)
