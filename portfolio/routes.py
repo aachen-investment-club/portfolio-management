@@ -13,6 +13,7 @@ from models.market import Market
 
 from schemas.market import Base
 from utils.aws_config import engine
+from models.metrics import Metrics
 
 Base.metadata.create_all(engine)
 
@@ -52,13 +53,6 @@ def index():
 
 
 
-    portfolio_metrics = {
-        "total_return": "12.4%",
-        "cagr": "8.1%",
-        "volatility": "14.3%",
-        "sharpe": 1.25,
-        "beta": 0.92
-    }
     positions= portfolio.get_position_weights()
 
     nav = portfolio.get_daily_nav() 
@@ -69,11 +63,47 @@ def index():
         for d, v in nav.items()
     ]
 
+    bench_df = Market.get_us_treasury_bonds()
+
+
+    
+    bench_series = (
+        bench_df
+        ["price close"]
+        .sort_index())
+
+
+    port_returns = Metrics.get_daily_returns(nav)
+    bench_returns = Metrics.get_daily_returns(bench_series)
+    
+    print(bench_returns.head() )
+
+    portf_positions_df = portfolio.get_portfolio_positions_df() 
+
+    portf_data = Market.get_historical_data(portf_positions_df["ticker"].to_list())
+    port_weights = Metrics.get_portfolio_weights(portf_positions_df, portf_data)
+
+    print(type(port_returns))
+
+    metrics = {
+        "total_return": f"{Metrics.get_ROI(nav):.2f}%",
+        "cagr": f"{Metrics.get_CAGR(nav):.2f}%",
+        "volatility": f"{Metrics.get_annual_volatility(port_returns):.2f}",
+        "sharpe": f"{Metrics.get_sharpe_ratio(port_returns):.7f}",
+        "max_drawdown": f"{Metrics.get_maximum_drawdown(nav):.7f}",
+        "beta": f"{Metrics.get_beta(port_returns, bench_returns):.7f}",
+        "alpha": f"{Metrics.get_alpha(port_returns, bench_returns):.7f}",
+        "total_value": f"{float(nav.iloc[-1]):.7f}",
+        #"value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
+    }
+
+
+
     return render_template(
         "index.html", 
         portfolios = portfolios, 
         selected_key = selected_key, 
-        metrics=portfolio_metrics,
+        metrics=metrics,
         positions=positions, 
         nav_ts=nav_ts,         
         api_route=os.getenv("API_ROUTE"), 

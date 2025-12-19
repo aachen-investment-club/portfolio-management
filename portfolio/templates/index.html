@@ -68,32 +68,53 @@
                     <h2 class="mt-5">Portfolio Metrics</h2>
 
                     <div class="row g-3">
-                        <div class="col-6 col-sm-4 col-lg-2">
-                            <div class="bg-dark-subtle rounded p-3">
+                        <div class="col-6 col-sm-4 col-lg-2 metric-item">
+                            <div class="metric-card bg-dark-subtle rounded p-3">
                                 <h5>Total Return</h5>
-                                <h3>{{ metrics.total_return }}</h3>
+                                <h3 id="kpi-total-return">{{ metrics.total_return }}</h3>
                             </div>
                         </div>
-
-                        <div class="col-6 col-sm-4 col-lg-2">
-                            <div class="bg-dark-subtle rounded p-3">
-                                <h5>CAGR</h5>
-                                <h3>{{ metrics.cagr }}</h3>
+                        <div class="col-6 col-sm-4 col-lg-2 metric-item">
+                            <div class="bg-dark-subtle container-fluid rounded p-3">
+                            <h5>CAGR</h5>
+                            <h3 id="kpi-cagr">{{ metrics.cagr }}</h3>
                             </div>
                         </div>
-
-                        <div class="col-6 col-sm-4 col-lg-2">
-                            <div class="bg-dark-subtle rounded p-3">
-                                <h5>Sharpe Ratio</h5>
-                                <h3>{{ metrics.sharpe }}</h3>
+                        <div class="col-6 col-sm-4 col-lg-2 metric-item">
+                            <div class="bg-dark-subtle container-fluid rounded p-3">
+                            <h5>Volatility</h5>
+                            <h3 id="kpi-volatility">{{metrics.volatility}}</h3>
                             </div>
                         </div>
-
-                        <div class="col-6 col-sm-4 col-lg-2">
-                            <div class="bg-dark-subtle rounded p-3">
-                                <h5>Beta</h5>
-                                <h3>{{ metrics.beta }}</h3>
+                        <div class="col-6 col-sm-4 col-lg-2 metric-item">
+                            <div class="bg-dark-subtle container-fluid rounded p-3">
+                            <h5>Sharpe Ratio</h5>
+                            <h3 id="kpi-sharpe">{{ metrics.sharpe }}</h3>
                             </div>
+                        </div>
+                        <div class="col-6 col-sm-4 col-lg-2 metric-item">
+                            <div class="bg-dark-subtle container-fluid rounded p-3">
+                            <h5>Jensen's Alpha</h5>
+                            <h3 id="kpi-jalpha">{{ metrics.alpha}}</h3>
+                            </div>
+                        </div>
+                        <div class="col-6 col-sm-4 col-lg-2 metric-item">
+                            <div class="bg-dark-subtle container-fluid rounded p-3">
+                                <h5>Value at Risk</h5>
+                                <h3 id="kpi-var">--</h3>
+                            </div>
+                        </div>
+                        <div class="col-6 col-sm-4 col-lg-2 metric-item">
+                            <div class="bg-dark-subtle container-fluid rounded p-3">
+                            <h5>Max Drawdown</h5>
+                            <h3 id="kpi-maxdrawdown">{{metrics.max_drawdown}}</h3>
+                            </div>
+                        </div>
+                        <div class="col-6 col-sm-4 col-lg-2 metric-item">
+                            <div class="bg-dark-subtle container-fluid rounded p-3">
+                            <h5>Beta</h5>
+                            <h3 id="kpi-beta">{{ metrics.beta }}</h3>
+                            </div> 
                         </div>
                     </div>
 

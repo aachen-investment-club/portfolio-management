@@ -154,7 +154,7 @@ class Market(Base):
         )
 
         if response:
-            data:List[Dict] = json.loads(response.content) ["data"]
+            data = json.loads(response.content) ["data"]
 
             df = pd.DataFrame(data)
 
@@ -168,8 +168,8 @@ class Market(Base):
             df = df.set_index(keys = "record_date")
 
             df.drop(columns= ["security_desc"], inplace=True)
-            df = df.rename(columns = {"avg_interest_rate_amt":"Rate"})
-            df.index.name = "Date"
+            df = df.rename(columns = {"avg_interest_rate_amt":"price close"})
+            df.index.name = "date"
             return df
         else:
             raise Exception("Error: US Treasury API sent no response")

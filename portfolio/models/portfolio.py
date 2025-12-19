@@ -26,13 +26,26 @@ class Portfolio():
         self.current_position ={} #: observation: we assume short selling in this implementation.
         self.initial_cash = cash
 
+    def get_portfolio_positions_df(self): 
+        out = {
+            "ticker": [], 
+            "shares":[]
+        }
+        for symbol,value in self.current_position.items():  
+            out["ticker"].append(symbol)
+            out["shares"].append(value)
+
+
+        return pd.DataFrame(out)
+
 
 
     def get_position_weights(self): 
         total = 0 
         for value in self.current_position.values(): 
             total+=  value
-        position_weights = [{"symbol": symbol, "weight": position/ total} for symbol, position in self.current_position.items() if position!= 0 ]
+        position_weights = [{"symbol": symbol, "weight": position/ total} 
+                            for symbol, position in self.current_position.items() if position!= 0 ]
         return position_weights
 
 
@@ -84,7 +97,7 @@ class Portfolio():
             .pivot_table(
                 index="date",
                 columns="ticker",
-                values="price_close",   # ✅ correct
+                values="price_close",   
                 aggfunc="last",
             )
             .sort_index()
@@ -127,6 +140,15 @@ class Portfolio():
         prices = self.get_prices_ts()
 
         positions = positions.reindex(prices.index, method="ffill").fillna(0)
+
+        """
+        the core idea of this formula: 
+
+        nav_t = cash_t + sum_{assset}(position(asset, t)*price(asset, t) ) 
+        """
+
+
+
 
         market_value = (positions * prices).sum(axis=1)
         cash = self.get_cash_ts(prices.index)

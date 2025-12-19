@@ -7,6 +7,9 @@ from models.market import Market
 tradingDays: int = 252
 
 class Metrics: 
+
+
+
     @staticmethod 
     def get_bonds_returns(start_date = None, end_date = None): 
         data = Market.get_us_treasury_bonds()
@@ -118,7 +121,6 @@ class Metrics:
             portfolio_weights: np.ndarray,
             days_horizon: int = 10, n_simulations: int = 10000,
             CL: float = 0.95, portfolio_value: float = 100.0):
-        # returns : multi asset returns not for single asset
 
         # time period for which future is simulated  : days_horizon
         mean_returns = returns.mean() 
