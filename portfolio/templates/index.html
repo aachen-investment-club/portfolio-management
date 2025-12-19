@@ -6,11 +6,18 @@
     </head>
     <body>
         <nav class="navbar navbar-expand-lg bg-body-tertiary container-fluid p-3">
-            <a class="navbar-brand" href="#">Dashboard</a>
+            <a class="navbar-brand fs-2 fw-bold" href="#">Dashboard</a>
         </nav>
-
+        
 
         <main class="container-fluid bg-body-red p-5">
+            <div class="container-fluid px-4 py-3 portfolio-header">
+                <div class="d-flex align-items-center gap-3">
+                    <div id="total-portfolio-value" class="fw-bold fs-2">
+                        --
+                    </div>
+                </div>
+            </div>
             <div class="row g-3">
 
                 <!-- Main Chart -->
@@ -91,7 +98,7 @@
 
         <script src="https://cdn.plot.ly/plotly-3.2.0.min.js" charset="utf-8"></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-        <script src="/script/index.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+        <script src="/script/index.js"></script>
     </body>
 </html>
