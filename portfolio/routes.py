@@ -8,7 +8,7 @@ from models.portfolio import Portfolio
 
 from flask import Flask
 from flask import render_template
-from flask import request
+from flask import request,jsonify
 from models.market import Market
 
 from schemas.market import Base
@@ -23,6 +23,18 @@ Base.metadata.create_all(engine)
 @app.route("/health")
 def health():
     return "healthy"
+
+
+
+@app.route("/load_market")
+def load_market():
+
+    Market.load_from_csv("./data/sp500_close_current.csv")
+
+    return {"status":"success"}
+
+
+
 
 @app.route("/")
 def index():
@@ -81,7 +93,7 @@ def index():
     portf_positions_df = portfolio.get_portfolio_positions_df() 
 
     portf_data = Market.get_historical_data(portf_positions_df["ticker"].to_list())
-    port_weights = Metrics.get_portfolio_weights(portf_positions_df, portf_data)
+    #port_weights = Metrics.get_portfolio_weights(portf_positions_df, portf_data)
 
     print(type(port_returns))
 
@@ -108,6 +120,28 @@ def index():
         nav_ts=nav_ts,         
         api_route=os.getenv("API_ROUTE"), 
     )
+
+
+
+@app.route('/upload-portfolio', methods=['POST'])
+def upload_portfolio():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    
+    file = request.files['file']
+    if file: 
+        Portfolio.upload_portfolio(file)
+    
+    
+    
+    return jsonify({"status": "success"}),200
+
+
+
+
+
+
+
 
 
 

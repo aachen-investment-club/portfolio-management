@@ -29,6 +29,18 @@
                                 {% endfor %}
                             </select>
                         </form>
+
+                        <div class="mt-4 pt-3 border-top">
+                            <h5 class="mb-3">Upload Portfolio</h5>
+                            <div class="mb-3">
+                                <label for="portfolioUpload" class="form-label small text-secondary">Choose a JSON file</label>
+                                <input class="form-control form-control-sm" type="file" id="portfolioUpload" accept=".json">
+                            </div>
+                            <div id="uploadStatus" class="small mt-2"></div>
+                        </div>
+
+
+
                     </div>
                 </aside>
 

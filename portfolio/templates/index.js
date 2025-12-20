@@ -27,3 +27,25 @@ Plotly.newPlot(mainChart, data, layout, { responsive: true });
 
 
 
+document.getElementById('portfolioUpload').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const statusDiv = document.getElementById('uploadStatus');
+    statusDiv.innerHTML = '<span class="text-info">Uploading...</span>';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    axios.post('/upload-portfolio', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    .then(response => {
+        statusDiv.innerHTML = '<span class="text-success">Upload successful!</span>';
+        setTimeout(() => window.location.reload(), 1500);
+    })
+    .catch(error => {
+        console.error(error);
+        statusDiv.innerHTML = '<span class="text-danger">Upload failed.</span>';
+    });
+});

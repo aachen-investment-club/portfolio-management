@@ -314,8 +314,22 @@ class Portfolio():
         return leverage 
 
 
+    @staticmethod
+    def upload_portfolio(file): 
 
- 
+        if file and file.filename.endswith('.json'):
+            filename = file.filename
+            
+
+            s3_client = boto3.client("s3")
+            bucket = "portfolio-management-developer"
+            # Upload directly to S3 without saving locally first
+            s3_client.upload_fileobj(
+                file,
+                bucket,
+                f"portfolios/{filename}",
+                ExtraArgs={"ContentType": "application/json"}
+            )
 
 
 
