@@ -100,7 +100,6 @@ def index():
     portf_data = Market.get_historical_data(portf_positions_df["ticker"].to_list())
     #port_weights = Metrics.get_portfolio_weights(portf_positions_df, portf_data)
 
-    print(type(port_returns))
 
     metrics = {
         "total_return": f"{Metrics.get_ROI(nav):.2f}%",
@@ -114,7 +113,7 @@ def index():
         #"value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
     }
 
-
+    print(Market.get_traded_assets())
     return render_template(
         "index.html", 
         portfolios = portfolios, 

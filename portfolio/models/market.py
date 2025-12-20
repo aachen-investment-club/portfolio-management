@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session, Mapped, mapped_column
 from sqlalchemy import String, DateTime, Float
 
 from utils.aws_config import engine
-from schemas.market import Base
+from schemas.market import Base, MarketDB
 from alpaca.trading import GetCalendarRequest
 from alpaca.trading.client import TradingClient
 from alpaca.data.requests import StockBarsRequest
@@ -30,17 +30,11 @@ TICKER = "ticker"
 PRICE = "price_close"
 
 
-class Market(Base):
+class Market:
     """
     - quotes is a DataFrame with a multiindex of form Ticker (string), Date (datetime).
     """
     US_TREASURY_API = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/"
-    __tablename__ = "portfolio_management_developer"
-
-    ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
-    date: Mapped[datetime] = mapped_column(DateTime(), primary_key=True)
-    price_close: Mapped[float] = mapped_column(Float(), nullable=False)
-
 
 
 
@@ -72,7 +66,7 @@ class Market(Base):
                 batch = records[i:i + batch_size]
 
                 stmt = (
-                    insert(cls)
+                    insert(MarketDB)
                     .values(batch)
                     .on_conflict_do_nothing(
                         index_elements=["ticker", "date"]
@@ -84,7 +78,7 @@ class Market(Base):
 
             session.commit()
             total_rows = session.scalar(
-            select(func.count()).select_from(cls)
+            select(func.count()).select_from(MarketDB)
             )
 
         print(total_rows)
@@ -105,9 +99,9 @@ class Market(Base):
             raise Exception("the selected date is unavailable in the market") 
 
         stmt = (
-            select(cls.price_close).where(
-                cls.ticker == ticker, 
-                cls.datre == datetime.combine(date, datetime.min.time())
+            select(MarketDB.price_close).where(
+                MarketDB.ticker == ticker, 
+                MarketDB.datre == datetime.combine(date, datetime.min.time())
             )
         )
 
@@ -122,7 +116,7 @@ class Market(Base):
 
     @classmethod
     def get_trading_days(cls) -> List:
-        stmt = select(cls.date).distinct().order_by(cls.date)
+        stmt = select(MarketDB.date).distinct().order_by(MarketDB.date)
 
         with Session(engine) as session:
             return [d.date() for d in session.scalars(stmt)]
@@ -130,7 +124,7 @@ class Market(Base):
 
     @classmethod
     def get_traded_assets(cls) -> List[str]:
-        stmt = select(cls.ticker).distinct().order_by(cls.ticker)
+        stmt = select(MarketDB.ticker).distinct().order_by(MarketDB.ticker)
 
         with Session(engine) as session:
             return list(session.scalars(stmt))
@@ -180,7 +174,7 @@ class Market(Base):
     @classmethod
     def get_lastest_date_in_db(cls): 
         with Session(engine) as session:
-            latest_db_date= session.query(func.max(cls.date)).scalar().date()
+            latest_db_date= session.query(func.max(MarketDB.date)).scalar().date()
             return latest_db_date
 
 
@@ -208,7 +202,7 @@ class Market(Base):
         target_end_date = calendar[-1].date
         
         with Session(engine) as session:
-            latest_db_date_raw = session.query(func.max(cls.date)).scalar()
+            latest_db_date_raw = session.query(func.max(MarketDB.date)).scalar()
             latest_db_date = latest_db_date_raw.date() if latest_db_date_raw else None
 
         if latest_db_date and latest_db_date >= target_end_date:
@@ -255,7 +249,7 @@ class Market(Base):
                 for i in range(0, len(records), 300):
                     batch = records[i:i + 300]
                     stmt = (
-                        insert(cls)
+                        insert(MarketDB)
                         .values(batch)
                         .on_conflict_do_nothing(index_elements=["ticker", "date"])
                     )
@@ -300,17 +294,17 @@ class Market(Base):
         if not tickers:
             raise ValueError("tickers must not be empty")
 
-        conditions = [cls.ticker.in_(tickers)]
+        conditions = [MarketDB.ticker.in_(tickers)]
 
         if start:
-            conditions.append(cls.date >= start)
+            conditions.append(MarketDB.date >= start)
         if end:
-            conditions.append(cls.date <= end)
+            conditions.append(MarketDB.date <= end)
 
         stmt = (
-            select(cls)
+            select(MarketDB)
             .where(and_(*conditions))
-            .order_by(cls.date)
+            .order_by(MarketDB.date)
         )
 
         return pd.read_sql(stmt, engine)
@@ -322,21 +316,21 @@ class Market(Base):
 
         subq = (
             select(
-                cls.ticker,
-                func.max(cls.date).label("max_date")
+                MarketDB.ticker,
+                func.max(MarketDB.date).label("max_date")
             )
-            .where(cls.ticker.in_(tickers))
-            .group_by(cls.ticker)
+            .where(MarketDB.ticker.in_(tickers))
+            .group_by(MarketDB.ticker)
             .subquery()
         )
 
         stmt = (
-            select(cls)
+            select(MarketDB)
             .join(
                 subq,
                 and_(
-                    cls.ticker == subq.c.ticker,
-                    cls.date == subq.c.max_date
+                    MarketDB.ticker == subq.c.ticker,
+                    MarketDB.date == subq.c.max_date
                 )
             )
         )
