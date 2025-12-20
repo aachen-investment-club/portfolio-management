@@ -1,0 +1,22 @@
+{% macro SimulationPanel(initial_cash, leverage_limit) %}
+<div class="bg-dark-subtle rounded p-3 h-100 mt-3">
+    <h5 class="mb-3">Simulation Parameters</h5>
+    <form method="get" action="/">
+        <input type="hidden" name="portfolio" value="{{ request.args.get('portfolio', '') }}">
+
+        <div class="mb-3">
+            <label class="form-label small text-secondary">Initial Cash ($)</label>
+            <input type="number" name="cash" class="form-control form-control-sm" 
+                   value="{{ initial_cash }}" step="100">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label small text-secondary">Leverage Limit ($)</label>
+            <input type="number" name="leverage" class="form-control form-control-sm" 
+                   value="{{ leverage_limit }}" step="100">
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-sm w-100">Recalculate</button>
+    </form>
+</div>
+{% endmacro %}

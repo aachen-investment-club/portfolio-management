@@ -1,5 +1,6 @@
 
 {% from 'components/metrics.html' import MetricCard %}
+{% from 'components/simulation.html' import SimulationPanel%}
 {% from 'components/positions.html' import PositionsContainer%}
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
@@ -62,9 +63,15 @@
                         </div>
 
                         <!-- Positions -->
-                        {{
-                            PositionsContainer(positions)
-                        }}
+
+                        <div class="col-12 col-lg-4">
+                            {{
+                                PositionsContainer(positions)
+                            }}
+                            {{
+                                SimulationPanel(initial_cash, leverage_limit)
+                            }}
+                        </div>
                     </div>
 
                     <!-- Metrics -->
@@ -72,14 +79,18 @@
 
                     <div class="row g-3 mb-3">
                         {{ MetricCard("Total Return", metrics.total_return, id="kpi-total-return") }}
-                        {{ MetricCard("CAGR", metrics.cagr, id="kpi-cagr") }}
+                        {{ MetricCard("Total Value", metrics.total_value, id="kpi-total-value") }}
+                        {{ MetricCard("Cash", metrics.cash, id="kpi-cash") }}
                         {{ MetricCard("Volatility", metrics.volatility) }}
-                        {{ MetricCard("Sharpe Ratio", metrics.sharpe) }}
                     </div>
                     <div class="row g-3 mb-3">
+                        {{ MetricCard("Sharpe Ratio", metrics.sharpe) }}
                         {{ MetricCard("Jensen's Alpha", metrics.alpha, id="kpi-alpha") }}
-                        {{ MetricCard("Max Drawdown", metrics.max_drawdown) }}
                         {{ MetricCard("Beta", metrics.beta) }}
+                        {{ MetricCard("Max Drawdown", metrics.max_drawdown) }}
+                    </div>
+                    <div class="row g-3 mb-3">
+                        {{ MetricCard("CAGR", metrics.cagr, id="kpi-cagr") }}
                     </div>
 
                 </section>

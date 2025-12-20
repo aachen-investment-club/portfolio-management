@@ -1,16 +1,15 @@
 {% macro PositionsContainer(positions) %}
-<div class="col-12 col-lg-4">
-    <div class="bg-dark-subtle rounded p-3 h-100">
-        <h4>Positions</h4>
+<div class="bg-dark-subtle rounded p-3 h-100">
+    <h4>Positions</h4>
 
-        <div id="positions-list">
-            {% for position in positions %}
-                <div class="d-flex justify-content-between border-bottom py-2">
-                    <span>{{ position.symbol }}</span>
-                    <span>{{ (position.weight * 100) | round(1) }}%</span>
-                </div>
-            {% endfor %}
-        </div>
+    <div id="positions-list">
+        {% for position in positions %}
+            <div class="d-flex justify-content-between border-bottom py-2">
+                <span>{{ position.symbol }}</span>
+                <span>{{ (position.weight * 100) | round(1) }}%</span>
+            </div>
+        {% endfor %}
     </div>
 </div>
+
 {% endmacro %}

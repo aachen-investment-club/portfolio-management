@@ -46,10 +46,8 @@ def update_market():
 @app.route("/")
 def index():
 
-
-    perform = False 
-    if perform: 
-        Market.load_from_csv("./data/sp500_close_current.csv")
+    initial_cash = request.args.get("cash", default=1000000, type=float)
+    leverage_limit = request.args.get("leverage", default=100000, type=float)
 
     portfolios = Portfolio.list_portfolios()
 
@@ -66,7 +64,7 @@ def index():
         selected_data = portfolios[selected_key]
 
 
-    portfolio = Portfolio(100000, 100000)
+    portfolio = Portfolio(initial_cash, leverage_limit)
 
     portfolio.import_from_dict(selected_data)
 
@@ -100,20 +98,22 @@ def index():
     portf_data = Market.get_historical_data(portf_positions_df["ticker"].to_list())
     #port_weights = Metrics.get_portfolio_weights(portf_positions_df, portf_data)
 
-
     metrics = {
-        "total_return": f"{Metrics.get_ROI(nav):.2f}%",
-        "cagr": f"{Metrics.get_CAGR(nav):.2f}%",
-        "volatility": f"{Metrics.get_annual_volatility(port_returns):.2f}",
+        "total_return": f"{Metrics.get_ROI(nav):.7f}%",
+        "cash": f"${portfolio.cash:.1f}",
+        "cagr": f"{Metrics.get_CAGR(nav):.7f}%",
+        "volatility": f"{Metrics.get_annual_volatility(port_returns):.7f}",
         "sharpe": f"{Metrics.get_sharpe_ratio(port_returns):.7f}",
         "max_drawdown": f"{Metrics.get_maximum_drawdown(nav):.7f}",
         "beta": f"{Metrics.get_beta(port_returns, bench_returns):.7f}",
         "alpha": f"{Metrics.get_alpha(port_returns, bench_returns):.7f}",
-        "total_value": f"{float(nav.iloc[-1]):.7f}",
+        "total_value": f"${float(nav.iloc[-1]):.1f}",
         #"value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
     }
 
-    print(Market.get_traded_assets())
+
+
+
     return render_template(
         "index.html", 
         portfolios = portfolios, 
@@ -121,6 +121,8 @@ def index():
         metrics=metrics,
         positions=positions, 
         nav_ts=nav_ts,
+        initial_cash= f"{portfolio.initial_cash}",
+        leverage_limit=  f"{portfolio.leverage_limit}",
         api_route=os.getenv("API_ROUTE"), 
     )
 
