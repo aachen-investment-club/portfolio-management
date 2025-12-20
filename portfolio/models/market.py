@@ -20,7 +20,9 @@ from utils.aws_config import engine
 from schemas.market import Base
 from alpaca.trading import GetCalendarRequest
 from alpaca.trading.client import TradingClient
-
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
+from alpaca.data.historical import StockHistoricalDataClient
 
 
 DATE = "date"
@@ -174,34 +176,98 @@ class Market(Base):
         else:
             raise Exception("Error: US Treasury API sent no response")
 
-    # @classmethod
-    # def update_market(cls): 
-    #     expected_latest_quote = pd.Timestamp(Market.get_latest_quotation_date())
-    #
-    #     if cls.latest_quote_date != expected_latest_quote and cls.is_trading_day(expected_latest_quote): 
-    #         print("updating market...")
-    #
-    #         stocks = list(cls.universe)
-    #
-    #         bars =Alpaca.get_bars_time_range(stocks, cls.latest_quote_date+timedelta(1), expected_latest_quote+timedelta(1)) 
-    #
-    #         if bars:  
-    #
-    #             bars:pd.DataFrame = bars.df[["close"]]
-    #             bars.index = bars.index.set_levels(
-    #              [bars.index.levels[0], bars.index.levels[1].floor("D").tz_localize(None)]
-    #             )
-    #             bars.index.names = [TICKER, DATE]
-    #             bars.columns =[PRICE]
-    #             cls.quotes = pd.concat([cls.quotes, bars]).sort_index()
-    #             cls.trading_days = cls.quotes.index.get_level_values(DATE).unique()
-    #
-    #
-    #             cls.write_csv()
-    #             print("done updating market")
-    #     else: 
-    #         print("market up to date")
-    #         return 
+
+    @classmethod
+    def get_lastest_date_in_db(cls): 
+        with Session(engine) as session:
+            latest_db_date= session.query(func.max(cls.date)).scalar().date()
+            return latest_db_date
+
+
+
+
+    @classmethod
+    def update_market(cls):
+        trading_client = TradingClient(
+            api_key=os.getenv("APCA_API_KEY_ID"),
+            secret_key=os.getenv("APCA_API_SECRET_KEY")
+        )
+        data_client = StockHistoricalDataClient(
+            api_key=os.getenv("APCA_API_KEY_ID"),
+            secret_key=os.getenv("APCA_API_SECRET_KEY")
+        )
+
+        today = datetime.now().date()
+        yesterday = today - timedelta(days=1)
+
+
+        # we can use the calendar api to be sure.
+        calendar_req = GetCalendarRequest(start=today - timedelta(days=5), end=yesterday)
+        calendar = trading_client.get_calendar(calendar_req)
+        
+        target_end_date = calendar[-1].date
+        
+        with Session(engine) as session:
+            latest_db_date_raw = session.query(func.max(cls.date)).scalar()
+            latest_db_date = latest_db_date_raw.date() if latest_db_date_raw else None
+
+        if latest_db_date and latest_db_date >= target_end_date:
+            #: if so, then dw dont need the update
+            return 
+
+        start_fetch = (latest_db_date + timedelta(days=1)) if latest_db_date else (target_end_date - timedelta(days=365))
+
+        tickers = cls.get_traded_assets()
+        request_params = StockBarsRequest(
+            symbol_or_symbols=tickers,
+            timeframe=TimeFrame.Day,
+            start=datetime.combine(start_fetch, datetime.min.time()),
+            end=datetime.combine(target_end_date, datetime.max.time()),
+            #feed='IEX' # Safest for free tier
+        )
+
+        bars = data_client.get_stock_bars(request_params)
+
+
+
+
+
+
+        bars = data_client.get_stock_bars(request_params)
+
+        if bars.data:
+            df_bars = bars.df.reset_index()
+            df_bars = df_bars[['symbol', 'timestamp', 'close']].rename(
+                columns={
+                    "symbol": "ticker",
+                    "timestamp": "date",
+                    "close": "price_close"
+                }
+            )
+            df_bars['date'] = df_bars['date'].dt.tz_localize(None).dt.floor('D')
+
+            #: OBSERVATION: remember that sqlalchemy has a limitation for the 
+            # number of sim. write operations (per query)--> batching is necessary!!
+            records = df_bars.to_dict(orient="records")
+            inserted = 0
+
+            with Session(engine) as session:
+                for i in range(0, len(records), 300):
+                    batch = records[i:i + 300]
+                    stmt = (
+                        insert(cls)
+                        .values(batch)
+                        .on_conflict_do_nothing(index_elements=["ticker", "date"])
+                    )
+                    result = session.execute(stmt)
+                    inserted += result.rowcount or 0
+                session.commit()
+
+
+
+
+
+
 
     @staticmethod
     def is_trading_day(date) -> bool:

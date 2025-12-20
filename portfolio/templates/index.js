@@ -27,6 +27,23 @@ Plotly.newPlot(mainChart, data, layout, { responsive: true });
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 document.getElementById('portfolioUpload').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;

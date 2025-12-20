@@ -35,6 +35,13 @@ def load_market():
 
 
 
+@app.route("/update_market")
+def update_market():
+
+    Market.update_market()
+
+    return {"status":"success"}
+
 
 @app.route("/")
 def index():
@@ -68,6 +75,7 @@ def index():
     positions= portfolio.get_position_weights()
 
     nav = portfolio.get_daily_nav() 
+    bench_df = Market.get_us_treasury_bonds()
     
     #: has to be converted to a list of dicts for json 
     nav_ts = [
@@ -75,20 +83,17 @@ def index():
         for d, v in nav.items()
     ]
 
-    bench_df = Market.get_us_treasury_bonds()
-
-
-    
     bench_series = (
         bench_df
         ["price close"]
         .sort_index())
 
+    
+
 
     port_returns = Metrics.get_daily_returns(nav)
     bench_returns = Metrics.get_daily_returns(bench_series)
     
-    print(bench_returns.head() )
 
     portf_positions_df = portfolio.get_portfolio_positions_df() 
 
@@ -110,14 +115,13 @@ def index():
     }
 
 
-
     return render_template(
         "index.html", 
         portfolios = portfolios, 
         selected_key = selected_key, 
         metrics=metrics,
         positions=positions, 
-        nav_ts=nav_ts,         
+        nav_ts=nav_ts,
         api_route=os.getenv("API_ROUTE"), 
     )
 
