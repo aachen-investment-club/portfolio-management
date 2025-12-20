@@ -5,6 +5,8 @@ import os
 import pandas as pd
 from models.alpaca_wrapper import Alpaca
 from models.portfolio import Portfolio
+from models.metrics import Metrics
+from models.market import Market
 
 from flask import Flask
 from flask import render_template

@@ -1,6 +1,7 @@
 
 import pandas as pd
 import numpy as np
+from scipy.stats import norm
 
 from models.market import Market
 
@@ -25,6 +26,21 @@ class Metrics:
             data = data.loc[data.index<=end_date]
 
         return Metrics.get_daily_returns(data['Rate'])
+
+    @staticmethod
+    def get_portfolio_weights(
+            portfolio: pd.DataFrame, historical_data: pd.DataFrame
+        ):
+        total = 0
+        weights = []
+        for i, data in portfolio.iterrows():
+            ticker = data["ticker"]
+            price_close = historical_data[ticker][-1]["price close"]
+            value = price_close * data["shares"]
+            total += value
+            weights.append(value)
+        weights = list(map(lambda x: x / total, weights))
+        return np.array(weights) 
 
     @staticmethod
     def get_basic_metrics(assets: pd.DataFrame) -> pd.DataFrame:
@@ -122,10 +138,16 @@ class Metrics:
             days_horizon: int = 10, n_simulations: int = 10000,
             CL: float = 0.95, portfolio_value: float = 100.0):
 
-        # time period for which future is simulated  : days_horizon
+        mean_return = returns.mean()
+        std_dev = returns.std()
+
+        z_score = norm.ppf(1 - CL)
+        VaR_var_cov  = mean_return + z_score * std_dev
+        return VaR_var_cov
+        """ # time period for which future is simulated  : days_horizon
         mean_returns = returns.mean() 
         sigma_returns = returns.std()
-        covmat_returns = returns.cov().values()
+        covmat_returns = returns.cov(returns).values()
         weights = np.array(portfolio_weights)
 
         L = np.linalg.cholesky(covmat_returns) # Cholesky decomposition creates correlated random variables based on the covmat
@@ -146,7 +168,7 @@ class Metrics:
 
         VaR = np.percentile (stochastic_losses, confidence_interval)
 
-        return VaR
+        return VaR"""
 
     #return on investment 
     @staticmethod 
