@@ -43,7 +43,9 @@ class Market:
         #stmt = select(func.count(MarketDB.ticker))
         stmt = select(MarketDB.ticker).limit(1)
         with Session(engine) as session:
-            result = session.scalar(stmt)
+            #: in contrast to scalars, scalar selects the first ie equivalent 
+            # to .execute().first()
+            result = session.scalar(stmt) 
             return result is None
 
 
@@ -90,11 +92,8 @@ class Market:
                 inserted += result.rowcount or 0
 
             session.commit()
-            total_rows = session.scalar(
-            select(func.count()).select_from(MarketDB)
-            )
+            
 
-        print(total_rows)
         return inserted
 
     @classmethod
@@ -114,7 +113,7 @@ class Market:
         stmt = (
             select(MarketDB.price_close).where(
                 MarketDB.ticker == ticker, 
-                MarketDB.datre == datetime.combine(date, datetime.min.time())
+                MarketDB.date == datetime.combine(date, datetime.min.time())
             )
         )
 
@@ -281,7 +280,7 @@ class Market:
         client = TradingClient(
             api_key=os.getenv("APCA_API_KEY_ID"),
             secret_key=os.getenv("APCA_API_SECRET_KEY"),
-            paper=True,  # or False if live
+            paper=True, 
 
         )
         request = GetCalendarRequest(start=date, end=date)

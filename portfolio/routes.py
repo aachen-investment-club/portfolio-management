@@ -1,4 +1,4 @@
-from __main__ import app
+from __main__ import app, cache
 
 import os
 
@@ -14,9 +14,9 @@ from models.market import Market
 from schemas.market import Base
 from utils.aws_config import engine
 from models.metrics import Metrics
+import datetime
 
 Base.metadata.create_all(engine)
-
 
 
 
@@ -43,19 +43,49 @@ def update_market():
     return {"status":"success"}
 
 
+
+
+@cache.memoize(timeout = 600)
+def get_cached_nav_data(
+        selected_data, 
+        initial_cash, 
+        leverage_limit, 
+
+    ):
+    portfolio= Portfolio(initial_cash, leverage_limit)
+    portfolio.import_from_dict(selected_data)
+    nav = portfolio.get_daily_nav()
+
+    return portfolio, nav
+
+@cache.memoize(timeout = 600)
+def get_cached_bonds_data():
+    return Market.get_us_treasury_bonds()
+
+
 @app.route("/")
 def index():
 
-
-    print(Market.check_empty())
     if Market.check_empty(): 
 
         Market.load_from_csv("./data/sp500_close_current.csv")
 
-
-
     initial_cash = request.args.get("cash", default=1000000, type=float)
     leverage_limit = request.args.get("leverage", default=100000, type=float)
+    default_start= datetime.datetime(2000, 1, 3).date().strftime('%Y-%m-%d')
+
+    start_date= request.args.get("start_date", default=default_start) or default_start #: this is important for edge cases
+    
+    start_date = pd.to_datetime(datetime.datetime.strptime(start_date, '%Y-%m-%d').date())
+
+
+    default_end= Market.get_latest_date_in_db().strftime('%Y-%m-%d')
+
+
+    end_date= request.args.get("end_date", default=default_end) or default_end #: this is important for edge cases
+
+    end_date= pd.to_datetime(datetime.datetime.strptime(end_date, '%Y-%m-%d').date())
+
 
     portfolios = Portfolio.list_portfolios()
 
@@ -71,17 +101,21 @@ def index():
             selected_key= next(iter(portfolios))
         selected_data = portfolios[selected_key]
 
+    portfolio, nav = get_cached_nav_data(selected_data, initial_cash, leverage_limit)
+    bench_df = get_cached_bonds_data()
 
-    portfolio = Portfolio(initial_cash, leverage_limit)
-
-    portfolio.import_from_dict(selected_data)
 
 
 
     positions= portfolio.get_position_weights()
+    
+    nav= nav[nav.index>=start_date]
+    nav= nav[nav.index<= end_date]
 
-    nav = portfolio.get_daily_nav() 
-    bench_df = Market.get_us_treasury_bonds()
+    bench_df= bench_df[bench_df.index>=start_date]
+    bench_df= bench_df[bench_df.index<=end_date]
+
+
     
     #: has to be converted to a list of dicts for json 
     nav_ts = [

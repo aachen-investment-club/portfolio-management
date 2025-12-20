@@ -5,6 +5,17 @@
         <input type="hidden" name="portfolio" value="{{ request.args.get('portfolio', '') }}">
 
         <div class="mb-3">
+            <label class="form-label small text-secondary">Lower bound Date</label>
+            <input type="date" name="start_date" class="form-control form-control-sm" 
+                   value="{{ start_date }}">
+        </div>
+        <div class="mb-3">
+            <label class="form-label small text-secondary">Upper bound Date</label>
+            <input type="date" name="end_date" class="form-control form-control-sm" 
+                   value="{{ end_date }}">
+        </div>
+
+        <div class="mb-3">
             <label class="form-label small text-secondary">Initial Cash ($)</label>
             <input type="number" name="cash" class="form-control form-control-sm" 
                    value="{{ initial_cash }}" step="100">
