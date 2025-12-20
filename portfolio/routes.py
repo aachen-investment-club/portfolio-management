@@ -46,6 +46,14 @@ def update_market():
 @app.route("/")
 def index():
 
+
+    print(Market.check_empty())
+    if Market.check_empty(): 
+
+        Market.load_from_csv("./data/sp500_close_current.csv")
+
+
+
     initial_cash = request.args.get("cash", default=1000000, type=float)
     leverage_limit = request.args.get("leverage", default=100000, type=float)
 

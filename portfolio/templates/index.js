@@ -18,9 +18,24 @@ const layout = {
     paper_bgcolor: "#3A3A3A",
     plot_bgcolor: "#3A3A3A",
     font: { color: "white" },
-    margin: { t: 0 },
-    xaxis: { gridcolor: "#666" },
-    yaxis: { gridcolor: "#666" },
+    margin: { t: 40, r: 30, l: 60, b: 60 }, // Increased margins to make room for titles
+    xaxis: { 
+        title: {
+            text: "Date",
+            font: { size: 14, color: "#adb5bd" }
+        },
+        gridcolor: "#666",
+        zeroline: false
+    },
+    yaxis: { 
+        title: {
+            text: "Net Asset Value (USD)",
+            font: { size: 14, color: "#adb5bd" }
+        },
+        gridcolor: "#666",
+        zeroline: false
+    },
+    hovermode: "x unified"
 };
 
 Plotly.newPlot(mainChart, data, layout, { responsive: true });

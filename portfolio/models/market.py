@@ -38,6 +38,19 @@ class Market:
 
 
 
+    @classmethod 
+    def check_empty(cls): 
+        #stmt = select(func.count(MarketDB.ticker))
+        stmt = select(MarketDB.ticker).limit(1)
+        with Session(engine) as session:
+            result = session.scalar(stmt)
+            return result is None
+
+
+        
+
+
+
     @classmethod
     def load_from_csv(cls, path: str, batch_size: int = 300) -> int:
         df = pd.read_csv(path)
@@ -172,7 +185,7 @@ class Market:
 
 
     @classmethod
-    def get_lastest_date_in_db(cls): 
+    def get_latest_date_in_db(cls): 
         with Session(engine) as session:
             latest_db_date= session.query(func.max(MarketDB.date)).scalar().date()
             return latest_db_date
