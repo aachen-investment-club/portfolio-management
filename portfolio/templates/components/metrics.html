@@ -1,0 +1,8 @@
+{% macro MetricCard(label, value, id=None) %}
+<div class="col-6 col-sm-4 col-lg-2 metric-item">
+    <div class="bg-dark-subtle container-fluid rounded p-3">
+        <h5>{{ label }}</h5>
+        <h3 {% if id %}id="{{ id }}"{% endif %}>{{ value }}</h3>
+    </div>
+</div>
+{% endmacro %}

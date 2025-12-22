@@ -1,3 +1,7 @@
+
+{% from 'components/metrics.html' import MetricCard %}
+{% from 'components/simulation.html' import SimulationPanel%}
+{% from 'components/positions.html' import PositionsContainer%}
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
     <head>
@@ -8,89 +12,93 @@
         <nav class="navbar navbar-expand-lg bg-body-tertiary container-fluid p-3">
             <a class="navbar-brand fs-2 fw-bold" href="#">Dashboard</a>
         </nav>
-        
 
-        <main class="container-fluid bg-body-red p-5">
-            <div class="container-fluid px-4 py-3 portfolio-header">
-                <div class="d-flex align-items-center gap-3">
-                    <div id="total-portfolio-value" class="fw-bold fs-2">
-                        --
+        <main class="container-fluid">
+            <div class="row min-vh-100 g-3">
+
+                <!-- Sidebar -->
+                <aside class="col-12 col-lg-2">
+                    <div class="bg-dark-subtle rounded p-3 h-100">
+                        <h5 class="mb-3">Portfolios</h5>
+
+                        <form method="get">
+                            <select class="form-select" name="portfolio" onchange="this.form.submit()">
+                                {% for key, data in portfolios.items() %}
+                                    <option
+                                        value="{{ key }}"
+                                        {% if key == selected_key %}selected{% endif %}
+                                    >
+                                        {{ key.split('/')[-1] }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </form>
+
+                        <div class="mt-4 pt-3 border-top">
+                            <h5 class="mb-3">Upload Portfolio</h5>
+                            <div class="mb-3">
+                                <label for="portfolioUpload" class="form-label small text-secondary">Choose a JSON file</label>
+                                <input class="form-control form-control-sm" type="file" id="portfolioUpload" accept=".json">
+                            </div>
+                            <div id="uploadStatus" class="small mt-2"></div>
+                        </div>
+
+
+
                     </div>
-                </div>
-            </div>
-            <div class="row g-3">
+                </aside>
 
-                <!-- Main Chart -->
-                <div class="col-12 col-lg-8">
-                    <div class="container-fluid p-3 rounded bg-dark-subtle">
-                        <div id="main-chart" class="container-fluid p-0"></div>
-                    </div>
-                </div>
+                <!-- Main Content -->
+                <section class="col-12 col-lg-10">
+                    <div class="row g-3">
 
-                <!-- Positions List -->
-                 <div class="col-12 col-lg-4">
-                    <div class="p-3 rounded bg-dark-subtle h-100">
-                        <h4>Positions</h4>
-                        <div id="positions-list" class="h-100">
-                            <!-- Positions will be dynamically added here -->
+                        <!-- Main Chart -->
+                        <div class="col-12 col-lg-8">
+                            <h4 class="mb-3">
+                               Portfolio: {{ selected_key.split('/')[-1] if selected_key else "No Portfolio Selected" }}
+                            </h4>
+                            <div class="bg-dark-subtle rounded p-3 h-100">
+                                <div id="main-chart" class="container-fluid p-0"></div>
+                            </div>
+                        </div>
+
+                        <!-- Positions -->
+
+                        <div class="col-12 col-lg-4">
+                            {{
+                                PositionsContainer(positions)
+                            }}
+                            {{
+                                SimulationPanel(initial_cash, leverage_limit)
+                            }}
                         </div>
                     </div>
-                </div>
-            </div>
-            
-            <h2 class="mt-5">Portfolio Metrics</h2>
 
-            <div class="row g-3">
-                <div class="col-6 col-sm-4 col-lg-2 metric-item">
-                    <div class="metric-card bg-dark-subtle rounded p-3">
-                        <h5>Total Return</h5>
-                        <h3 id="kpi-total-return">--</h3>
+                    <!-- Metrics -->
+                    <h2 class="mt-5">Portfolio Metrics</h2>
+
+                    <div class="row g-3 mb-3">
+                        {{ MetricCard("Total Return", metrics.total_return, id="kpi-total-return") }}
+                        {{ MetricCard("Total Value", metrics.total_value, id="kpi-total-value") }}
+                        {{ MetricCard("Cash", metrics.cash, id="kpi-cash") }}
+                        {{ MetricCard("Volatility", metrics.volatility) }}
                     </div>
-                </div>
-                <div class="col-6 col-sm-4 col-lg-2 metric-item">
-                    <div class="bg-dark-subtle container-fluid rounded p-3">
-                    <h5>CAGR</h5>
-                    <h3 id="kpi-cagr">--</h3>
+                    <div class="row g-3 mb-3">
+                        {{ MetricCard("Sharpe Ratio", metrics.sharpe) }}
+                        {{ MetricCard("Jensen's Alpha", metrics.alpha, id="kpi-alpha") }}
+                        {{ MetricCard("Beta", metrics.beta) }}
+                        {{ MetricCard("Max Drawdown", metrics.max_drawdown) }}
                     </div>
-                </div>
-                <div class="col-6 col-sm-4 col-lg-2 metric-item">
-                    <div class="bg-dark-subtle container-fluid rounded p-3">
-                    <h5>Volatility</h5>
-                    <h3 id="kpi-volatility">--</h3>
+                    <div class="row g-3 mb-3">
+                        {{ MetricCard("CAGR", metrics.cagr, id="kpi-cagr") }}
                     </div>
-                </div>
-                <div class="col-6 col-sm-4 col-lg-2 metric-item">
-                    <div class="bg-dark-subtle container-fluid rounded p-3">
-                    <h5>Sharpe Ratio</h5>
-                    <h3 id="kpi-sharpe">--</h3>
-                    </div>
-                </div>
-                <div class="col-6 col-sm-4 col-lg-2 metric-item">
-                    <div class="bg-dark-subtle container-fluid rounded p-3">
-                    <h5>Jensen's Alpha</h5>
-                    <h3 id="kpi-jalpha">--</h3>
-                    </div>
-                </div>
-                <div class="col-6 col-sm-4 col-lg-2 metric-item">
-                    <div class="bg-dark-subtle container-fluid rounded p-3">
-                        <h5>Value at Risk</h5>
-                        <h3 id="kpi-var">--</h3>
-                    </div>
-                </div>
-                <div class="col-6 col-sm-4 col-lg-2 metric-item">
-                    <div class="bg-dark-subtle container-fluid rounded p-3">
-                    <h5>Max Drawdown</h5>
-                    <h3 id="kpi-maxdrawdown">--</h3>
-                    </div>
-                </div>
-                <div class="col-6 col-sm-4 col-lg-2 metric-item">
-                    <div class="bg-dark-subtle container-fluid rounded p-3">
-                    <h5>Beta</h5>
-                    <h3 id="kpi-beta">--</h3>
-                    </div> 
-                </div>
+
+                </section>
             </div>
         </main>
+
+
+        
 
         <footer>
 
@@ -98,6 +106,12 @@
 
         <script src="https://cdn.plot.ly/plotly-3.2.0.min.js" charset="utf-8"></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+        
+        <script>
+            const NAV_TS = {{ nav_ts | tojson }};
+        </script>
+
+        <script src="/script/index.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
         <script src="/script/index.js"></script>
     </body>

@@ -1,110 +1,83 @@
-const mainChart = document.getElementById('main-chart');
-const SPDR = {{ spdr }};
-const historicalData = {{ historical_data }}
-let data = [{
-    x: SPDR["SPY"].map(x => x["date"]),
-    y: SPDR["SPY"].map(x => x["price close"]),
-    name: "SPDR"
-}];
+const mainChart = document.getElementById("main-chart");
 
 
-Plotly.react(mainChart, data, {
-margin: { t: 0 } } );
 
-const mainTable = document.getElementById('main-table');
-const inputFileForm = document.getElementById('input-file-form');
-const submitButton = document.getElementById('submit-button');
-const inputFile = document.getElementById('input-file');
-const darkLayout = {
-    paper_bgcolor: '#3A3A3A',
-    plot_bgcolor: '#3A3A3A',
-    font: { color: 'white' },
+// Portfolio NAV (from Flask → index.html)
+const NAV = NAV_TS;
 
-    xaxis: {
-        type: "date",  
-        color: "#dddddd",
-        gridcolor: '#666'
-    },
-    yaxis: {
-        color: "#dddddd",
-        gridcolor: '#666'
-    },
-    legend: {
-        font: { color: 'white' },
-        bgcolor: '#3A3A3A'
+const data = [
+    {
+        x: NAV.map(x => x.date),
+        y: NAV.map(x => x.nav),
+        name: "Portfolio NAV",
+        line: { width: 3 }
     }
-};
+];
+
 const layout = {
-    ...darkLayout,
-    margin: { t: 0 }
+    paper_bgcolor: "#3A3A3A",
+    plot_bgcolor: "#3A3A3A",
+    font: { color: "white" },
+    margin: { t: 40, r: 30, l: 60, b: 60 }, // Increased margins to make room for titles
+    xaxis: { 
+        title: {
+            text: "Date",
+            font: { size: 14, color: "#adb5bd" }
+        },
+        gridcolor: "#666",
+        zeroline: false
+    },
+    yaxis: { 
+        title: {
+            text: "Net Asset Value (USD)",
+            font: { size: 14, color: "#adb5bd" }
+        },
+        gridcolor: "#666",
+        zeroline: false
+    },
+    hovermode: "x unified"
 };
 
-const ratio = historicalData[0]["price close"] / SPDR["SPY"][0]["price close"];
-data = [{
-    x: SPDR["SPY"].map(x => x["date"]),
-    y: SPDR["SPY"].map(x => x["price close"] * ratio),
-    name: "SPDR"
-}, {
-    x: historicalData.map(x => x["date"]),
-    y: historicalData.map(x => x["price close"]),
-    name: "Asset"
-}];
+Plotly.newPlot(mainChart, data, layout, { responsive: true });
 
-Plotly.newPlot(mainChart, data, {
-    ...darkLayout,
-    margin: { t: 0 }
-}, { responsive: true });
 
-axios.get("/api/portfolio/metrics")
-  .then(res => {
-    const m = res.data;
-    
-    document.getElementById("total-portfolio-value").innerText =
-      `$${m.total_value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-    document.getElementById("kpi-total-return").innerText = `${m.total_return.toFixed(2)}%`;
-    document.getElementById("kpi-cagr").innerText = `${m.cagr.toFixed(2)}%`;
-    document.getElementById("kpi-volatility").innerText = `${(m.volatility * 100).toFixed(2)}%`;
-    document.getElementById("kpi-sharpe").innerText = m.sharpe.toFixed(2);
-    document.getElementById("kpi-beta").innerText = m.beta.toFixed(2);
-    document.getElementById("kpi-jalpha").innerText = `${m.alpha.toFixed(2)}%`;
-    document.getElementById("kpi-maxdrawdown").innerText = `${m.max_drawdown.toFixed(2)}%`;
-    document.getElementById("kpi-var").innerText = `${m.value_at_risk.toFixed(2)}`;
-  });
 
-  axios.get("/api/portfolio/positions")
-  .then(res => {
-    const positions = res.data;
-    const container = document.getElementById("positions-list");
 
-    container.innerHTML = "";
 
-    positions.forEach(p => {
-      const price = Number(p.price);
-      const value = Number(p.value);
 
-      if (!Number.isFinite(price) || !Number.isFinite(value)) {
-        console.warn("Skipping invalid position:", p);
-        return;
-      }
 
-      const row = document.createElement("div");
-      row.className = "d-flex justify-content-between py-2 border-bottom";
 
-      row.innerHTML = `
-        <div>
-          <div class="fs-5 fw-semibold">${p.ticker}</div>
-          <small>${p.shares} shares</small>
-        </div>
-        <div class="text-end">
-          <div>$${price.toFixed(2)}</div>
-          <small class="text-muted">$${value.toLocaleString()}</small>
-        </div>
-      `;
 
-      container.appendChild(row);
+
+
+
+
+
+
+
+
+
+
+
+document.getElementById('portfolioUpload').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const statusDiv = document.getElementById('uploadStatus');
+    statusDiv.innerHTML = '<span class="text-info">Uploading...</span>';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    axios.post('/upload-portfolio', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    .then(response => {
+        statusDiv.innerHTML = '<span class="text-success">Upload successful!</span>';
+        setTimeout(() => window.location.reload(), 1500);
+    })
+    .catch(error => {
+        console.error(error);
+        statusDiv.innerHTML = '<span class="text-danger">Upload failed.</span>';
     });
-  })
-  .catch(err => {
-    console.error("Positions error:", err);
-  });
-
+});

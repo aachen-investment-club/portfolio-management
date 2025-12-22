@@ -18,3 +18,7 @@ docs/_templates/
 # Data
 data/
 .*.jpeg
+
+
+app.db
+market.db
