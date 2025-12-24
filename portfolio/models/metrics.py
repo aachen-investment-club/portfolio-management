@@ -1,12 +1,14 @@
 
 import pandas as pd
 import numpy as np
+from scipy.stats import norm
 
-from market import Market, PRICE
+from models.market import Market
 
 tradingDays: int = 252
 
 class Metrics: 
+
 
 
     @staticmethod 
@@ -25,10 +27,20 @@ class Metrics:
 
         return Metrics.get_daily_returns(data['Rate'])
 
-
-
-
-
+    @staticmethod
+    def get_portfolio_weights(
+            portfolio: pd.DataFrame, historical_data: pd.DataFrame
+        ):
+        total = 0
+        weights = []
+        for i, data in portfolio.iterrows():
+            ticker = data["ticker"]
+            price_close = historical_data[ticker][-1]["price close"]
+            value = price_close * data["shares"]
+            total += value
+            weights.append(value)
+        weights = list(map(lambda x: x / total, weights))
+        return np.array(weights) 
 
     @staticmethod
     def get_basic_metrics(assets: pd.DataFrame) -> pd.DataFrame:
@@ -37,42 +49,32 @@ class Metrics:
         df_merged["asset_value"] = df_merged["shares"] * df_merged["price close"]
         return df_merged
 
-
-
-
     @staticmethod
     def get_daily_returns(data: pd.Series)-> pd.Series:
         returns = data/ data.shift(1)-1
         returns = returns.dropna() #: the first entry is per definition undefined
-        return  returns
-
+        return returns
 
     @staticmethod
     def get_daily_log_returns(data: pd.Series)-> pd.Series:
-        returns =np.log(data/ data.shift(1))
+        returns = np.log(data/ data.shift(1))
         returns = returns.dropna() #: the first entry is per definition undefined
-        return  returns
+        return returns
 
-
-
-    @staticmethod 
+    @staticmethod
     def get_annual_volatility(returns: pd.Series, periods_per_year: int = 252) -> float: 
         annual_vol = returns.std() * np.sqrt(periods_per_year)
         return annual_vol
 
-
-    @staticmethod 
+    @staticmethod
     def get_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0, periods_per_year: int = 252) -> float:
         norm_risk_free_rate = risk_free_rate / periods_per_year # normalize the annual risk free rate as per the number of trading days in a year
-        excess_returns = returns - norm_risk_free_rate 
+        excess_returns = returns - norm_risk_free_rate
         excess_returns_mean = excess_returns.mean()
         excess_returns_std = excess_returns.std()
-        
         if excess_returns_std == 0: # check for division by zero error
             return float('nan')
-        
         sharpe_ratio_annual = (excess_returns_mean / excess_returns_std) * np.sqrt(1 / periods_per_year)
-        
         return sharpe_ratio_annual
 
 
@@ -81,7 +83,7 @@ class Metrics:
         """
         Calculates the Beta of the portfolio relative to a benchmark.
         Beta = Cov(Rp, Rm) / Var(Rm)
-        
+
         Args:
             portfolio_returns: Series of daily portfolio returns.
             benchmark_returns: Series of daily benchmark (e.g., SPY) returns.
@@ -92,12 +94,12 @@ class Metrics:
         df = pd.concat([portfolio_returns, benchmark_returns], axis=1).dropna()
         aligned_port_ret = df.iloc[:, 0]
         aligned_bench_ret = df.iloc[:, 1]
-        
+
         # Calculate Beta using Covariance/Variance matrix
         # cov_matrix[0,1] is covariance, cov_matrix[1,1] is variance of benchmark
         cov_matrix = np.cov(aligned_port_ret, aligned_bench_ret)
         beta = cov_matrix[0, 1] / cov_matrix[1, 1]
-        
+
         return beta
 
     @staticmethod
@@ -105,7 +107,7 @@ class Metrics:
         """
         Calculates Jensen's Alpha (annualized).
         Alpha = Rp - [Rf + Beta * (Rm - Rf)]
-        
+
         Args:
             portfolio_returns: Series of daily portfolio returns.
             benchmark_returns: Series of daily benchmark (e.g., SPY) returns.
@@ -118,31 +120,40 @@ class Metrics:
 
         # Calculate Beta
         beta = Metrics.get_beta(aligned_port_ret, aligned_bench_ret)
-        
+
         # Simple Annualization of average daily return
         avg_port_ret = aligned_port_ret.mean() * tradingDays
         avg_bench_ret = aligned_bench_ret.mean() * tradingDays
-        
+
         # Jensen's Alpha
         # Alpha = Portfolio Return - (Risk Free + Beta * (Benchmark Return - Risk Free))
         alpha = avg_port_ret - (risk_free_rate + beta * (avg_bench_ret - risk_free_rate))
-        
+
         return alpha
 
-    @staticmethod 
-    def get_value_at_risk(returns: pd.Series, portfolio_weights: np.ndarray,  days_horizon: int = 10, n_simulations: int = 10000, CL: float = 0.95, portfolio_value: float = 100.0):
-        # returns : multi asset returns not for single asset
-        
-        # time period for which future is simulated  : days_horizon
+    @staticmethod
+    def get_value_at_risk(
+            returns: pd.Series,
+            portfolio_weights: np.ndarray,
+            days_horizon: int = 10, n_simulations: int = 10000,
+            CL: float = 0.95, portfolio_value: float = 100.0):
+
+        mean_return = returns.mean()
+        std_dev = returns.std()
+
+        z_score = norm.ppf(1 - CL)
+        VaR_var_cov  = mean_return + z_score * std_dev
+        return VaR_var_cov
+        """ # time period for which future is simulated  : days_horizon
         mean_returns = returns.mean() 
         sigma_returns = returns.std()
-        covmat_returns = returns.cov().values()
+        covmat_returns = returns.cov(returns).values()
         weights = np.array(portfolio_weights)
 
         L = np.linalg.cholesky(covmat_returns) # Cholesky decomposition creates correlated random variables based on the covmat
-        
+
         stochastic_returns = np.zeros(n_simulations)
-        
+
         for i in range(n_simulations):
             cumulative_returns = 0.0
             for _ in range(days_horizon):
@@ -151,13 +162,13 @@ class Metrics:
                 daily_returns = float(weights.T @ corr_returns)  # convert to a scalar portfolio return for that day
                 cumulative_returns = cumulative_returns + daily_returns
             stochastic_returns[i] = cumulative_returns
-        
+
         confidence_interval = CL * 100
         stochastic_losses = - portfolio_value * stochastic_returns
-        
+
         VaR = np.percentile (stochastic_losses, confidence_interval)
-        
-        return VaR
+
+        return VaR"""
 
     #return on investment 
     @staticmethod 
@@ -167,7 +178,7 @@ class Metrics:
 
         roi = (end_price - start_price) / start_price *100
         return roi
-    
+
 
     def get_CAGR(prices: pd.Series) -> float:
         start_price = prices.iloc[0]

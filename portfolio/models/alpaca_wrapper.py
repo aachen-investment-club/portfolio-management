@@ -14,7 +14,6 @@ class Alpaca:
     ALPACA_KEY_ID = os.getenv("APCA_API_KEY_ID")
     ALPACA_SECRET_KEY = os.getenv("APCA_API_SECRET_KEY")
 
-
     @classmethod 
     def get_bars_time_range(cls, tickers, start, end): 
         client = StockHistoricalDataClient(
@@ -34,14 +33,6 @@ class Alpaca:
             return bars
         return None
 
-
-
-
-
-
-
-
-
     @classmethod
     def get_historical_data(cls, tickers: List[str]) -> dict:
         client = StockHistoricalDataClient(
@@ -56,7 +47,7 @@ class Alpaca:
         )
 
         data = client.get_stock_bars(params)
-        
+
         res = dict()
         for ticker in tickers:
             history = list(map(lambda x: {
@@ -65,9 +56,9 @@ class Alpaca:
             }, data[ticker]))
             res[ticker] = history
         return res
-    
+
     @classmethod
-    def get_historical_net_asset_value(cls, portfolio: pd.DataFrame) -> dict:
+    def get_historical_net_asset_value(cls, portfolio: pd.DataFrame) -> pd.DataFrame:
         client = StockHistoricalDataClient(
             cls.ALPACA_KEY_ID,
             cls.ALPACA_SECRET_KEY
@@ -80,7 +71,7 @@ class Alpaca:
         )
 
         data = client.get_stock_bars(params)
-        
+
         df = pd.DataFrame(columns=["date", "price close", "ticker"])
         for ticker in tickers:
             history = pd.DataFrame(list(map(lambda x: {
@@ -93,9 +84,7 @@ class Alpaca:
         df_merged["price close"] = df_merged["price close"] * df_merged["shares"]
         df_merged = df_merged.groupby("date").sum().reset_index()
         df_merged["date"] = df_merged["date"].apply(lambda x: x.isoformat())
-        
-        return {
-            "asset": df_merged[["date", "price close"]].to_dict(orient="records")
-        }
-            
+
+        return df_merged[["date", "price close"]].to_dict(orient="records")
+
 
