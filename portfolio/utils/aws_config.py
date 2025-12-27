@@ -1,6 +1,4 @@
-import os
 from sqlalchemy import create_engine
-import boto3
 """
 boto3.setup_default_session(
     aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
@@ -17,8 +15,5 @@ url = f"awsathena+rest://" + \
 
 """
 
-
-
-#engine = create_engine("sqlite:///app.db")
+# engine = create_engine("sqlite:///app.db")
 engine = create_engine("sqlite:///market.db", echo=False)
-
