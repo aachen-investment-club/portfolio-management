@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 from scipy.stats import norm
@@ -7,9 +6,10 @@ from models.market import Market
 
 tradingDays: int = 252
 
-class Metrics: 
+
+class Metrics:
     @staticmethod
-    def get_bonds_returns(start_date = None, end_date = None): 
+    def get_bonds_returns(start_date=None, end_date=None):
         data = Market.get_us_treasury_bonds()
         data.index = pd.to_datetime(data.index)
         print(data.index.dtype)
@@ -58,12 +58,13 @@ class Metrics:
         return returns
 
     @staticmethod
-    def get_annual_volatility(returns: pd.Series, periods_per_year: int = 252) -> float: 
+    def get_annual_volatility(returns: pd.Series, periods_per_year: int = 252) -> float:
         annual_vol = returns.std() * np.sqrt(periods_per_year)
         return annual_vol
 
     @staticmethod
-    def get_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0, periods_per_year: int = 252) -> float:
+    def get_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0, 
+                         periods_per_year: int = 252) -> float:
         # normalize the annual risk free rate as per the number of trading days in a year
 
         norm_risk_free_rate = risk_free_rate / periods_per_year
@@ -148,7 +149,7 @@ class Metrics:
         VaR_var_cov = mean_return + z_score * std_dev
         return VaR_var_cov
         """ # time period for which future is simulated  : days_horizon
-        mean_returns = returns.mean() 
+        mean_returns = returns.mean()
         sigma_returns = returns.std()
         covmat_returns = returns.cov(returns).values()
         weights = np.array(portfolio_weights)
@@ -174,8 +175,8 @@ class Metrics:
         return VaR"""
 
     # return on investment
-    @staticmethod 
-    def get_ROI(prices: pd.Series) -> float: 
+    @staticmethod
+    def get_ROI(prices: pd.Series) -> float:
         start_price = prices.iloc[0]
         end_price = prices.iloc[-1]
 
