@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 from scipy.stats import norm
@@ -7,30 +6,27 @@ from models.market import Market
 
 tradingDays: int = 252
 
-class Metrics: 
 
-
-
-    @staticmethod 
-    def get_bonds_returns(start_date = None, end_date = None): 
+class Metrics:
+    @staticmethod
+    def get_bonds_returns(start_date=None, end_date=None):
         data = Market.get_us_treasury_bonds()
         data.index = pd.to_datetime(data.index)
         print(data.index.dtype)
 
         if start_date is not None:
             start_date = pd.Timestamp(start_date)
-            data = data.loc[data.index>= start_date]
+            data = data.loc[data.index >= start_date]
 
         if end_date is not None:
             end_date = pd.Timestamp(end_date)
-            data = data.loc[data.index<=end_date]
+            data = data.loc[data.index <= end_date]
 
         return Metrics.get_daily_returns(data['Rate'])
 
     @staticmethod
     def get_portfolio_weights(
-            portfolio: pd.DataFrame, historical_data: pd.DataFrame
-        ):
+            portfolio: pd.DataFrame, historical_data: pd.DataFrame):
         total = 0
         weights = []
         for i, data in portfolio.iterrows():
@@ -40,7 +36,7 @@ class Metrics:
             total += value
             weights.append(value)
         weights = list(map(lambda x: x / total, weights))
-        return np.array(weights) 
+        return np.array(weights)
 
     @staticmethod
     def get_basic_metrics(assets: pd.DataFrame) -> pd.DataFrame:
@@ -51,35 +47,41 @@ class Metrics:
 
     @staticmethod
     def get_daily_returns(data: pd.Series)-> pd.Series:
-        returns = data/ data.shift(1)-1
-        returns = returns.dropna() #: the first entry is per definition undefined
+        returns = data / data.shift(1)-1
+        returns = returns.dropna()  #: the first entry is per definition undefined
         return returns
 
     @staticmethod
     def get_daily_log_returns(data: pd.Series)-> pd.Series:
-        returns = np.log(data/ data.shift(1))
-        returns = returns.dropna() #: the first entry is per definition undefined
+        returns = np.log(data / data.shift(1))
+        returns = returns.dropna()  #: the first entry is per definition undefined
         return returns
 
     @staticmethod
-    def get_annual_volatility(returns: pd.Series, periods_per_year: int = 252) -> float: 
+    def get_annual_volatility(returns: pd.Series, periods_per_year: int = 252) -> float:
         annual_vol = returns.std() * np.sqrt(periods_per_year)
         return annual_vol
 
     @staticmethod
-    def get_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0, periods_per_year: int = 252) -> float:
-        norm_risk_free_rate = risk_free_rate / periods_per_year # normalize the annual risk free rate as per the number of trading days in a year
+    def get_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0, 
+                         periods_per_year: int = 252) -> float:
+        # normalize the annual risk free rate as per the number of trading days in a year
+
+        norm_risk_free_rate = risk_free_rate / periods_per_year
         excess_returns = returns - norm_risk_free_rate
         excess_returns_mean = excess_returns.mean()
         excess_returns_std = excess_returns.std()
-        if excess_returns_std == 0: # check for division by zero error
+        if excess_returns_std == 0:  # check for division by zero error
             return float('nan')
-        sharpe_ratio_annual = (excess_returns_mean / excess_returns_std) * np.sqrt(1 / periods_per_year)
+        sharpe_ratio_annual = (excess_returns_mean / excess_returns_std) \
+                * np.sqrt(1 / periods_per_year)
         return sharpe_ratio_annual
 
 
     @staticmethod
-    def get_beta(portfolio_returns: pd.Series, benchmark_returns: pd.Series) -> float:
+    def get_beta(
+            portfolio_returns: pd.Series, benchmark_returns: pd.Series
+            ) -> float:
         """
         Calculates the Beta of the portfolio relative to a benchmark.
         Beta = Cov(Rp, Rm) / Var(Rm)
@@ -103,7 +105,9 @@ class Metrics:
         return beta
 
     @staticmethod
-    def get_alpha(portfolio_returns: pd.Series, benchmark_returns: pd.Series, risk_free_rate: float = 0.0) -> float:
+    def get_alpha(
+            portfolio_returns: pd.Series, benchmark_returns: pd.Series,
+            risk_free_rate: float = 0.0) -> float:
         """
         Calculates Jensen's Alpha (annualized).
         Alpha = Rp - [Rf + Beta * (Rm - Rf)]
@@ -142,10 +146,10 @@ class Metrics:
         std_dev = returns.std()
 
         z_score = norm.ppf(1 - CL)
-        VaR_var_cov  = mean_return + z_score * std_dev
+        VaR_var_cov = mean_return + z_score * std_dev
         return VaR_var_cov
         """ # time period for which future is simulated  : days_horizon
-        mean_returns = returns.mean() 
+        mean_returns = returns.mean()
         sigma_returns = returns.std()
         covmat_returns = returns.cov(returns).values()
         weights = np.array(portfolio_weights)
@@ -170,15 +174,14 @@ class Metrics:
 
         return VaR"""
 
-    #return on investment 
-    @staticmethod 
-    def get_ROI(prices: pd.Series) -> float: 
+    # return on investment
+    @staticmethod
+    def get_ROI(prices: pd.Series) -> float:
         start_price = prices.iloc[0]
         end_price = prices.iloc[-1]
 
-        roi = (end_price - start_price) / start_price *100
+        roi = (end_price - start_price) / start_price * 100
         return roi
-
 
     def get_CAGR(prices: pd.Series) -> float:
         start_price = prices.iloc[0]
@@ -191,9 +194,9 @@ class Metrics:
             return float("nan")
 
         cagr = (end_price / start_price) ** (1 / years) - 1
-        return cagr * 100  
-    ''' 
-    The Maximum Drawdown (MDD) measures the largest percentage loss an asset 
+        return cagr * 100
+    '''
+    The Maximum Drawdown (MDD) measures the largest percentage loss an asset
     would have experienced over a given period, calculated from the highest price
     to the subsequent lowest price.
     It is an important metric for assessing downside risk, indicating how much an
@@ -201,7 +204,7 @@ class Metrics:
     Unlike volatility, which accounts for both upward and downward movements, 
     MDD is an asymmetric risk measure that focuses exclusively on losses.
     '''
-    @staticmethod 
+    @staticmethod
     def get_maximum_drawdown(prices: pd.Series) -> float:
         rolling_max = prices.cummax()
         drawdowns = prices / rolling_max - 1
