@@ -1,87 +1,64 @@
-const mainChart = document.getElementById('main-chart');
-const SPDR = {{ spdr }};
-let data = [{
-    x: SPDR["SPY"].map(x => x["date"]),
-    y: SPDR["SPY"].map(x => x["price close"]),
-    name: "SPDR"
-}];
+const mainChart = document.getElementById("main-chart");
 
 
-Plotly.react(mainChart, data, {
-margin: { t: 0 } } );
 
-const mainTable = document.getElementById('main-table');
-const inputFileForm = document.getElementById('input-file-form');
-const submitButton = document.getElementById('submit-button');
-const inputFile = document.getElementById('input-file');
-const darkLayout = {
-    paper_bgcolor: '#3A3A3A',
-    plot_bgcolor: '#3A3A3A',
-    font: { color: 'white' },
+// Portfolio NAV (from Flask → index.html)
+const NAV = NAV_TS;
 
-    xaxis: {
-        color: "#dddddd",
-        gridcolor: '#666'
-    },
-    yaxis: {
-        color: "#dddddd",
-        gridcolor: '#666'
-    },
-    legend: {
-        font: { color: 'white' },
-        bgcolor: '#3A3A3A'
+const data = [
+    {
+        x: NAV.map(x => x.date),
+        y: NAV.map(x => x.nav),
+        name: "Portfolio NAV",
+        line: { width: 3 }
     }
-};
+];
+
 const layout = {
-    ...darkLayout,
-    margin: { t: 0 }
+    paper_bgcolor: "#3A3A3A",
+    plot_bgcolor: "#3A3A3A",
+    font: { color: "white" },
+    margin: { t: 40, r: 30, l: 60, b: 60 }, // Increased margins to make room for titles
+    xaxis: { 
+        title: {
+            text: "Date",
+            font: { size: 14, color: "#adb5bd" }
+        },
+        gridcolor: "#666",
+        zeroline: false
+    },
+    yaxis: { 
+        title: {
+            text: "Net Asset Value (USD)",
+            font: { size: 14, color: "#adb5bd" }
+        },
+        gridcolor: "#666",
+        zeroline: false
+    },
+    hovermode: "x unified"
 };
 
-Plotly.newPlot(mainChart, [{
-    x: [1, 2, 3, 4, 5],
-    y: [1, 2, 4, 8, 16]
-}], layout, {responsive: true});
+Plotly.newPlot(mainChart, data, layout, { responsive: true });
 
-let portfolioData = undefined;
+document.getElementById('portfolioUpload').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-submitButton.onclick = async (e) => {
-    const file = inputFile.files[0];
-    const text = JSON.parse(await file.text());
-    const res = await axios.post("{{ api_route }}/portfolio", text);
-    portfolioData = res.data["portfolio"] ?? [];
-    historicalData = res.data["historical"]["asset"];
-    inputFileForm.style.display = "none";
+    const statusDiv = document.getElementById('uploadStatus');
+    statusDiv.innerHTML = '<span class="text-info">Uploading...</span>';
 
-    for (const data of portfolioData) {
-        const ticker = document.createElement("div");
-        ticker.innerText = data["ticker"];
-        const currentPrice = document.createElement("div");
-        currentPrice.innerText = data["price close"];
-        const shares = document.createElement("div");
-        shares.innerText = data["shares"];
-        const assetValue = document.createElement("div");
-        assetValue.innerText = data["asset_value"];
+    const formData = new FormData();
+    formData.append('file', file);
 
-        mainTable.appendChild(ticker);
-        mainTable.appendChild(currentPrice);
-        mainTable.appendChild(shares);
-        mainTable.appendChild(assetValue);
-    }
-
-    const maxDD = portfolioData[0].max_drawdown;  // TEMPORARY SOURCE
-    document.getElementById("kpi-maxdrawdown").innerText =
-        (maxDD * 100).toFixed(0) + "%";
-
-    const ratio = historicalData[0]["price close"] / SPDR["SPY"][0]["price close"];
-    data = [{
-        x: SPDR["SPY"].map(x => x["date"]),
-        y: SPDR["SPY"].map(x => x["price close"] * ratio),
-        name: "SPDR"
-    }, {
-        x: historicalData.map(x => x["date"]),
-        y: historicalData.map(x => x["price close"]),
-        name: "Asset"
-    }];
-    
-    Plotly.newPlot(mainChart, data, { margin: { t: 0 }});
-};
+    axios.post('/upload-portfolio', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    .then(response => {
+        statusDiv.innerHTML = '<span class="text-success">Upload successful!</span>';
+        setTimeout(() => window.location.reload(), 1500);
+    })
+    .catch(error => {
+        console.error(error);
+        statusDiv.innerHTML = '<span class="text-danger">Upload failed.</span>';
+    });
+});

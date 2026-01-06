@@ -112,7 +112,8 @@ def test_beta():
     print(Metrics.get_beta(portfolio_returns=nvida_returns, benchmark_returns=bond_returns))
 
 
+test_market()
 test_sharpe()
-test_beta()
+#test_beta()
 #generate_sublog()
 #test_import()
