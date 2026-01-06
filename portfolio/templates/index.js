@@ -50,7 +50,7 @@ document.getElementById('portfolioUpload').addEventListener('change', function(e
     const formData = new FormData();
     formData.append('file', file);
 
-    axios.post('/upload-portfolio', formData, {
+    axios.post('/upload_portfolio', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     })
     .then(response => {

@@ -36,15 +36,25 @@
                             </select>
                         </form>
 
+                        {% if user %}
                         <div class="mt-4 pt-3 border-top">
                             <h5 class="mb-3">Upload Portfolio</h5>
+                            Successfully authenticated
                             <div class="mb-3">
                                 <label for="portfolioUpload" class="form-label small text-secondary">Choose a JSON file</label>
                                 <input class="form-control form-control-sm" type="file" id="portfolioUpload" accept=".json">
                             </div>
                             <div id="uploadStatus" class="small mt-2"></div>
+                            <form action="{{ url_for('logout') }}" method="get">
+                                <button type="submit" class="btn btn-outline-danger btn-sm d-flex align-items-center gap-1">Logout</button>
+                            </form>
                         </div>
-
+                        {% else %}
+                        <div class="mt-4 pt-3 border-top">
+                            <h5 class="mb-3">Authenticate to add a portfolio</h5>
+                            <div id="uploadStatus" class="small mt-2"></div>
+                        </div>
+                        {% endif %}
 
 
                     </div>

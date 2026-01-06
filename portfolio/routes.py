@@ -1,4 +1,5 @@
-from __main__ import app, cache
+from __main__ import app, cache, oauth
+from functools import wraps
 
 import os
 
@@ -8,14 +9,67 @@ from models.metrics import Metrics
 from models.market import Market
 
 from flask import render_template
-from flask import request, jsonify
+from flask import request, jsonify, session, redirect, url_for
 
 from schemas.market import Base
 from utils.aws_config import engine
 import datetime
+import urllib
+
+
+
+COGNITO_DOMAIN_PREFIX = os.getenv("COGNITO_DOMAIN_PREFIX")  
+COGNITO_REGION = os.getenv("AWS_REGION")   
+COGNITO_CLIENT_ID = os.getenv("COGNITO_CLIENT_ID")
+
 
 Base.metadata.create_all(engine)
 
+
+
+def check_auth(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user" not in session:
+
+            print("unauthenticated")
+            return redirect(url_for('login', _external=True))
+        print("authenticated")
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+
+@app.route('/login')
+def login():
+    redirect_uri = url_for('authorize', _external=True)
+
+    return oauth.oidc.authorize_redirect(redirect_uri)
+
+
+@app.route('/authorize')
+def authorize():
+    token = oauth.oidc.authorize_access_token()
+    user = token['userinfo']
+    session['user'] = user
+    return redirect(url_for('index'))
+
+
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+
+    logout_uri = url_for("index", _external=True)
+    params = {
+        "client_id": COGNITO_CLIENT_ID,
+        "logout_uri": logout_uri,  
+    }
+    qs = urllib.parse.urlencode(params)
+
+    cognito_logout = f"https://{COGNITO_DOMAIN_PREFIX}.auth.{COGNITO_REGION}.amazoncognito.com/logout?{qs}"
+
+
+    return redirect(cognito_logout) 
 
 @app.route("/health")
 def health():
@@ -140,8 +194,19 @@ def index():
         # "value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
     }
 
+
+    if 'user' in session:
+        user = session['user']
+        print(f"logged in as {user["email"]}")
+    else:
+        user = None
+        print(f"not logged in yet")
+
+
+
     return render_template(
         "index.html",
+        user = user, 
         portfolios=portfolios,
         selected_key=selected_key,
         metrics=metrics,
@@ -152,7 +217,12 @@ def index():
         api_route=os.getenv("API_ROUTE"),
     )
 
-@app.route('/upload-portfolio', methods=['POST'])
+
+
+
+
+@app.route('/upload_portfolio', methods=['POST'])
+@check_auth
 def upload_portfolio():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
