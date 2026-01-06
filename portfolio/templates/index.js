@@ -62,3 +62,32 @@ document.getElementById('portfolioUpload').addEventListener('change', function(e
         statusDiv.innerHTML = '<span class="text-danger">Upload failed.</span>';
     });
 });
+
+
+
+document.getElementById('removePortfolioButton').addEventListener('click', function () {
+    const select = document.getElementById('removePortfolioSelection');
+    const key = select.value;
+
+    if (!key) return;
+
+    if (!confirm('Are you sure you want to remove this portfolio?')) {
+        return;
+    }
+
+    const statusDiv = document.getElementById('removeStatus');
+    statusDiv.innerHTML = '<span class="text-info">Removing...</span>';
+
+    const formData = new FormData();
+    formData.append('portfolio', key);
+
+    axios.post('/remove_portfolio', formData)
+        .then(response => {
+            statusDiv.innerHTML = '<span class="text-success">Removed!</span>';
+            setTimeout(() => window.location.reload(), 1500);
+        })
+        .catch(error => {
+            console.error(error);
+            statusDiv.innerHTML = '<span class="text-danger">Removal failed.</span>';
+        });
+});

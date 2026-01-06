@@ -233,6 +233,26 @@ def upload_portfolio():
 
     return jsonify({"status": "success"})
 
+
+
+@app.route('/remove_portfolio', methods=['POST'])
+@check_auth
+def remove_portfolio():
+
+    selected_portfolio = request.form.get("portfolio")
+    if not selected_portfolio: 
+        return jsonify({"error": "No selected portfolio"}), 400
+
+    Portfolio.remove_portfolio(selected_portfolio)
+    return jsonify({"status": "success"})
+
+
+
+
+
+
+
+
 @app.route("/script/index.js")
 def scriptIndex():
     return render_template("index.js",  api_route=os.getenv("API_ROUTE"))

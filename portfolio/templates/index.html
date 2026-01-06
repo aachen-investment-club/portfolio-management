@@ -45,9 +45,38 @@
                                 <input class="form-control form-control-sm" type="file" id="portfolioUpload" accept=".json">
                             </div>
                             <div id="uploadStatus" class="small mt-2"></div>
-                            <form action="{{ url_for('logout') }}" method="get">
-                                <button type="submit" class="btn btn-outline-danger btn-sm d-flex align-items-center gap-1">Logout</button>
-                            </form>
+
+                            <h5 class="mb-3">Remove a Portfolio</h5>
+                            <div class = "mb-3">
+
+                                <select id="removePortfolioSelection" class="form-select mb-2" name="portfolio">
+                                    {% for key, data in portfolios.items() %}
+                                        <option
+                                            value="{{ key }}"
+                                            {% if key == selected_key %}selected{% endif %}
+                                        >
+                                            {{ key.split("/")[-1] }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <button id="removePortfolioButton"  class="btn btn-outline-danger btn-sm d-flex align-items-center gap-1" ">
+                                    Remove 
+                                </button>
+                                <div id="removeStatus" class="small mt-2"></div>
+
+
+                            </div> 
+
+
+                            <div class = "mb-3">
+
+                                <form action="{{ url_for('logout') }}" method="get">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm d-flex align-items-center gap-1">Logout</button>
+                                </form>
+
+                            </div>
+
+
                         </div>
                         {% else %}
                         <div class="mt-4 pt-3 border-top">

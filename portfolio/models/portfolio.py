@@ -145,27 +145,7 @@ class Portfolio():
         nav.name = "NAV"
         return nav
 
-    @staticmethod
-    def list_portfolios():
-        client = boto3.client("s3")
-        bucket = "portfolio-management-developer"
-        prefix = "portfolios/"
-        objects = client.list_objects_v2(Bucket=bucket, Prefix=prefix)
 
-        portfolios_names = [
-                object["Key"] for object in objects["Contents"]
-                if object["Key"] != prefix]
-
-        portfolios = {}
-        for file_name in portfolios_names:
-            response = client.get_object(
-                Bucket=bucket,
-                Key=file_name
-            )
-            text = response["Body"].read().decode("utf-8")
-            log = json.loads(text)
-            portfolios[file_name] = log
-        return portfolios
 
     def import_from_dict(self, data):
         """
@@ -277,6 +257,32 @@ class Portfolio():
         leverage = gross / max(net_value, 1e-8)
         return leverage
 
+
+
+    @staticmethod
+    def list_portfolios():
+        client = boto3.client("s3")
+        bucket = "portfolio-management-developer"
+        prefix = "portfolios/"
+        objects = client.list_objects_v2(Bucket=bucket, Prefix=prefix)
+
+        portfolios_names = [
+                object["Key"] for object in objects["Contents"]
+                if object["Key"] != prefix]
+
+        portfolios = {}
+        for file_name in portfolios_names:
+            response = client.get_object(
+                Bucket=bucket,
+                Key=file_name
+            )
+            text = response["Body"].read().decode("utf-8")
+            log = json.loads(text)
+            portfolios[file_name] = log
+        return portfolios
+
+
+
     @staticmethod
     def upload_portfolio(file):
 
@@ -292,3 +298,19 @@ class Portfolio():
                 f"portfolios/{filename}",
                 ExtraArgs={"ContentType": "application/json"}
             )
+
+    @staticmethod
+    def remove_portfolio(file):
+        portfolios = Portfolio.list_portfolios()
+        print(file)
+        print(portfolios.keys())
+        if file in portfolios.keys():
+
+            s3_client = boto3.client("s3")
+
+            bucket = "portfolio-management-developer"
+            s3_client.delete_object(
+                Bucket=bucket,
+                Key=file
+            )
+ 
