@@ -1,4 +1,4 @@
-from __main__ import app, cache
+from portfolio.__main__ import app, cache
 
 import os
 
