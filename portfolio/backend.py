@@ -5,7 +5,7 @@ import pandas as pd
 from portfolio.models.metrics import Metrics
 from portfolio.models.alpaca_wrapper import Alpaca
 
-from __main__ import app
+from portfolio.__main__ import app
 
 
 @app.route("/api/portfolio", methods=["POST"])
