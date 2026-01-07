@@ -20,7 +20,7 @@ pip install -r requirements.txt
 4. To run the application, simply run
 
 ```
-python3.12 portfolio
+python3.12 -m portfolio
 ```
 
 ## Automatic API documentation
