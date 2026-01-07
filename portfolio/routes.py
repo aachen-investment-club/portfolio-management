@@ -3,15 +3,15 @@ from __main__ import app, cache
 import os
 
 import pandas as pd
-from models.portfolio import Portfolio
-from models.metrics import Metrics
-from models.market import Market
+from portfolio.models.portfolio import Portfolio
+from portfolio.models.metrics import Metrics
+from portfolio.models.market import Market
 
 from flask import render_template
 from flask import request, jsonify
 
-from schemas.market import Base
-from utils.aws_config import engine
+from portfolio.schemas.market import Base
+from portfolio.utils.aws_config import engine
 import datetime
 
 Base.metadata.create_all(engine)

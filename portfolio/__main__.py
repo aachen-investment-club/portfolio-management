@@ -14,9 +14,10 @@ app = Flask(__name__)
 cache = Cache(app, config=config)
 CORS(app)
 
-import utils.aws_config
-import routes
-import backend
+
+from portfolio.utils import aws_config
+from portfolio import routes, backend
+
 
 if __name__ == "__main__":
     app.run(debug=True)
