@@ -2,8 +2,8 @@ from flask import request
 
 import pandas as pd
 
-from models.metrics import Metrics
-from models.alpaca_wrapper import Alpaca
+from portfolio.models.metrics import Metrics
+from portfolio.models.alpaca_wrapper import Alpaca
 
 from __main__ import app
 
