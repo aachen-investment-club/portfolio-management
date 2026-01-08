@@ -1,5 +1,5 @@
 from typing import List, Iterable
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 import numpy as np
@@ -249,6 +249,9 @@ class Market:
                     result = session.execute(stmt)
                     inserted += result.rowcount or 0
                 session.commit()
+
+        
+        print("market update successfull")
 
     @staticmethod
     def is_trading_day(date) -> bool:
