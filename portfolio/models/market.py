@@ -181,6 +181,7 @@ class Market:
 
     @classmethod
     def update_market(cls):
+        print("started updating market")
         trading_client = TradingClient(
             api_key=os.getenv("APCA_API_KEY_ID"),
             secret_key=os.getenv("APCA_API_SECRET_KEY")
@@ -204,6 +205,7 @@ class Market:
 
         if latest_db_date and latest_db_date >= target_end_date:
             #: if so, then dw dont need the update
+            print("no update necessary")
             return
 
         start_fetch = (latest_db_date + timedelta(days=1)) if latest_db_date else (target_end_date - timedelta(days=365))
@@ -249,9 +251,9 @@ class Market:
                     result = session.execute(stmt)
                     inserted += result.rowcount or 0
                 session.commit()
+        print("market updated")
 
         
-        print("market update successfull")
 
     @staticmethod
     def is_trading_day(date) -> bool:

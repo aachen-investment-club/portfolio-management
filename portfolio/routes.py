@@ -24,7 +24,6 @@ def health():
 @bp.route("/update_market")
 def update_market():
 
-    print("updating market")
     Market.update_market()
 
     return {"status": "success"}
