@@ -21,13 +21,6 @@ def health():
     return "healthy"
 
 
-@bp.route("/load_market")
-def load_market():
-    Market.load_from_csv("./data/sp500_close_current.csv")
-
-    return {"status": "success"}
-
-
 @bp.route("/update_market")
 def update_market():
     Market.update_market()
@@ -54,8 +47,6 @@ def get_cached_bonds_data():
 
 @bp.route("/")
 def index():
-    if Market.check_empty():
-        Market.load_from_csv("./data/sp500_close_current.csv")
 
     initial_cash = request.args.get("cash", default=1000000, type=float)
     leverage_limit = request.args.get("leverage", default=100000, type=float)
