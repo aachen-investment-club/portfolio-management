@@ -19,7 +19,15 @@ cache.init_app(app, config={
 })
 app.register_blueprint(bp)
 
+from portfolio.models.market import Market
 
 if __name__ == "__main__":
+
+
+    if Market.check_empty():
+        print("market empty, proceeding with creation")
+        Market.load_from_csv("./data/sp500_close_current.csv", 5000)
+    else: 
+        print("Market already exists, no need to load from csv.")
 
     app.run(debug=True)
