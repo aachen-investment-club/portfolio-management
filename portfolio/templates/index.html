@@ -8,6 +8,18 @@
             rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
             crossorigin="anonymous">
         <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+        <script>
+            function shownHandler(portfolio) {
+                const params = new URLSearchParams(document.location.search);
+                const shown = params.getAll("shown");
+                if (shown.includes(portfolio)) {
+                    params.delete("shown", portfolio);
+                } else {
+                    params.append("shown", portfolio);
+                }
+                location.replace("/?" + params.toString());
+            }
+        </script>
     </head>
     <body>
         <nav class="navbar navbar-expand-lg bg-body-tertiary container-fluid p-3">
@@ -21,7 +33,7 @@
                     <div class="bg-dark-subtle rounded p-3 h-100">
                         <h5 class="mb-3">Portfolios</h5>
 
-                        <form method="get">
+                        <form method="get" class="mb-3">
                             <select class="form-select" name="portfolio" onchange="this.form.submit()">
                                 {% for key, data in portfolios.items() %}
                                     <option
@@ -31,8 +43,25 @@
                                         {{ key.split("/")[-1] }}
                                     </option>
                                 {% endfor %}
-                            </select>
+                            </select>               
                         </form>
+                        
+                        <h5>Show Portfolios</h5>
+                        {% for key, data in portfolios.items() %}
+                            {% if key != selected_key %}
+                                <div>
+                                    <input type="checkbox" 
+                                        {% if key in shown %}
+                                        checked
+                                        {% endif %}
+                                        name="shown"
+                                        onchange="shownHandler('{{ key }}')"
+                                    >
+                                    <label>{{ key.split("/")[-1] }}</label>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+
 
                         <div class="mt-4 pt-3 border-top">
                             <h5 class="mb-3">Upload Portfolio</h5>

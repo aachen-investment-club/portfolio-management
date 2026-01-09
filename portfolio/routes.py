@@ -60,44 +60,64 @@ def index():
             datetime.datetime.strptime(end_date, '%Y-%m-%d').date())
 
     portfolios = Portfolio.list_portfolios()
-    selected_keys = request.args.get("portfolio")
+    selected_key = request.args.get("portfolio")
+    shown = request.args.getlist("shown")
 
     if not portfolios:
-        selected_keys = None
+        selected_key = None
         selected_data = None
     else:
-        if selected_keys not in portfolios:
-            selected_keys = next(iter(portfolios))
-        selected_data = portfolios[selected_keys]
-    portfolio, nav = get_cached_nav_data(
-            selected_data, initial_cash, leverage_limit)
+        if selected_key not in portfolios:
+            selected_key = next(iter(portfolios))
+        selected_data = portfolios[selected_key]
     bench_df = get_cached_bonds_data()
 
-    positions = portfolio.get_position_weights()
+    selected_portfolio = None
+    nav = None
+    all_charts = []
+    shown_portfolios = [
+        (k, v)
+        for k, v in portfolios.items()
+        if k == selected_key or k in shown
+    ]
+    for key, portfolio in shown_portfolios:
+        p, data =  get_cached_nav_data(
+            portfolio, initial_cash, leverage_limit
+        )
+        data = data[data.index >= start_date]
+        data = data[data.index <= end_date]
+
+        if key == selected_key:
+            selected_portfolio = p
+            nav = data
+        
+        json_data = {
+            "x": list(map(lambda x: x.strftime("%Y-%m-%d"), data.index)),
+            "y": list(data),
+            "name": key.split("/")[-1]
+        }
+        all_charts.append(json_data)
+
+
+    positions = selected_portfolio.get_position_weights()
     nav = nav[nav.index >= start_date]
     nav = nav[nav.index <= end_date]
 
     bench_df = bench_df[bench_df.index >= start_date]
     bench_df = bench_df[bench_df.index <= end_date]
 
-    # has to be converted to a list of dicts for json
-    nav_ts = [
-        {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}
-        for d, v in nav.items()
-    ]
-
     bench_series = (bench_df["price close"].sort_index())
 
     port_returns = Metrics.get_daily_returns(nav)
     bench_returns = Metrics.get_daily_returns(bench_series)
 
-    portf_positions_df = portfolio.get_portfolio_positions_df() 
-    portf_data = Market.get_historical_data(portf_positions_df["ticker"].to_list())
+    # portf_positions_df = selecportfolio.get_portfolio_positions_df() 
+    # portf_data = Market.get_historical_data(portf_positions_df["ticker"].to_list())
     # port_weights = Metrics.get_portfolio_weights(portf_positions_df, portf_data)
 
     metrics = {
         "total_return": f"{Metrics.get_ROI(nav):.7f}%",
-        "cash": f"${portfolio.cash:.1f}",
+        "cash": f"${selected_portfolio.cash:.1f}",
         "cagr": f"{Metrics.get_CAGR(nav):.7f}%",
         "volatility": f"{Metrics.get_annual_volatility(port_returns):.7f}",
         "sharpe": f"{Metrics.get_sharpe_ratio(port_returns):.7f}",
@@ -111,13 +131,14 @@ def index():
     return render_template(
         "index.html",
         portfolios=portfolios,
-        selected_key=selected_keys,
+        selected_key=selected_key,
         metrics=metrics,
         positions=positions,
-        nav_ts=nav_ts,
-        initial_cash=f"{portfolio.initial_cash}",
-        leverage_limit=f"{portfolio.leverage_limit}",
+        nav_ts=all_charts,
+        initial_cash=f"{selected_portfolio.initial_cash}",
+        leverage_limit=f"{selected_portfolio.leverage_limit}",
         api_route=os.getenv("API_ROUTE"),
+        shown=shown
     )
 
 
