@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import norm
 
-from portfolio.models.market import Market
+from models.market import Market
 
 tradingDays: int = 252
 

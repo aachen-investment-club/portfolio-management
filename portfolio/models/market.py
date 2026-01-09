@@ -15,8 +15,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
-from portfolio.utils.aws_config import engine
-from portfolio.schemas.market import MarketDB
+from utils.aws_config import engine
+from schemas.market import MarketDB
 from alpaca.trading import GetCalendarRequest
 from alpaca.trading.client import TradingClient
 from alpaca.data.requests import StockBarsRequest

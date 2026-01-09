@@ -11,8 +11,10 @@ from portfolio.__main__ import app
 @app.route("/api/portfolio", methods=["POST"])
 def portfolio():
     content = request.json
-    purchases = list(filter(lambda x: x["type"] == "PURCHASE", content["transactions"]))
-    tickers = list(map(lambda x: x["security"]["ticker"].split(".")[0], purchases))
+    purchases = list(filter(
+        lambda x: x["type"] == "PURCHASE", content["transactions"]))
+    tickers = list(map(
+        lambda x: x["security"]["ticker"].split(".")[0], purchases))
 
     df = pd.DataFrame({
         "ticker": tickers,

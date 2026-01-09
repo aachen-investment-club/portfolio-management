@@ -1,14 +1,14 @@
-
 from flask import Blueprint, render_template, request, jsonify
-import os, datetime
+import os
+import datetime
 import pandas as pd
 
-from portfolio.models.portfolio import Portfolio
-from portfolio.models.metrics import Metrics
-from portfolio.models.market import Market
-from portfolio.schemas.market import Base
-from portfolio.utils.aws_config import engine
-from portfolio.extensions import cache  
+from models.portfolio import Portfolio
+from models.metrics import Metrics
+from models.market import Market
+from schemas.market import Base
+from utils.aws_config import engine
+from extensions import cache
 
 bp = Blueprint("bp", __name__)
 
@@ -23,9 +23,7 @@ def health():
 
 @bp.route("/update_market")
 def update_market():
-
     Market.update_market()
-
     return {"status": "success"}
 
 
@@ -48,73 +46,52 @@ def get_cached_bonds_data():
 
 @bp.route("/")
 def index():
-
     initial_cash = request.args.get("cash", default=1000000, type=float)
     leverage_limit = request.args.get("leverage", default=100000, type=float)
+
     default_start = datetime.datetime(2000, 1, 3).date().strftime('%Y-%m-%d')
-
-    start_date = request.args.get("start_date", default=default_start) or default_start
-    #: this is important for edge cases
-    start_date = pd.to_datetime(datetime.datetime.strptime(start_date, '%Y-%m-%d').date())
-
+    start_date = request.args.get("start_date", default=default_start)
+    start_date = pd.to_datetime(
+            datetime.datetime.strptime(start_date, '%Y-%m-%d').date())
 
     default_end = Market.get_latest_date_in_db().strftime('%Y-%m-%d')
-
-
-    end_date = request.args.get("end_date", default=default_end) or default_end 
-    # this is important for edge cases
-
-    end_date = pd.to_datetime(datetime.datetime.strptime(end_date, '%Y-%m-%d').date())
-
+    end_date = request.args.get("end_date", default=default_end) or default_end
+    end_date = pd.to_datetime(
+            datetime.datetime.strptime(end_date, '%Y-%m-%d').date())
 
     portfolios = Portfolio.list_portfolios()
+    selected_keys = request.args.get("portfolio")
 
-    selected_key = request.args.get("portfolio")
-
-
-    if not portfolios : 
-        selected_key = None
+    if not portfolios:
+        selected_keys = None
         selected_data = None
-
-    else: 
-        if selected_key not in portfolios: 
-            selected_key= next(iter(portfolios))
-        selected_data = portfolios[selected_key]
-
-    portfolio, nav = get_cached_nav_data(selected_data, initial_cash, leverage_limit)
+    else:
+        if selected_keys not in portfolios:
+            selected_keys = next(iter(portfolios))
+        selected_data = portfolios[selected_keys]
+    portfolio, nav = get_cached_nav_data(
+            selected_data, initial_cash, leverage_limit)
     bench_df = get_cached_bonds_data()
 
-
-
-
     positions = portfolio.get_position_weights()
-    nav = nav[nav.index>=start_date]
-    nav = nav[nav.index<= end_date]
+    nav = nav[nav.index >= start_date]
+    nav = nav[nav.index <= end_date]
 
-    bench_df = bench_df[bench_df.index>=start_date]
-    bench_df = bench_df[bench_df.index<=end_date]
+    bench_df = bench_df[bench_df.index >= start_date]
+    bench_df = bench_df[bench_df.index <= end_date]
 
-
-    #: has to be converted to a list of dicts for json 
+    # has to be converted to a list of dicts for json
     nav_ts = [
         {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}
         for d, v in nav.items()
     ]
 
-    bench_series = (
-        bench_df
-        ["price close"]
-        .sort_index())
-
-
-
+    bench_series = (bench_df["price close"].sort_index())
 
     port_returns = Metrics.get_daily_returns(nav)
     bench_returns = Metrics.get_daily_returns(bench_series)
 
-
     portf_positions_df = portfolio.get_portfolio_positions_df() 
-
     portf_data = Market.get_historical_data(portf_positions_df["ticker"].to_list())
     # port_weights = Metrics.get_portfolio_weights(portf_positions_df, portf_data)
 
@@ -134,7 +111,7 @@ def index():
     return render_template(
         "index.html",
         portfolios=portfolios,
-        selected_key=selected_key,
+        selected_key=selected_keys,
         metrics=metrics,
         positions=positions,
         nav_ts=nav_ts,
@@ -142,6 +119,7 @@ def index():
         leverage_limit=f"{portfolio.leverage_limit}",
         api_route=os.getenv("API_ROUTE"),
     )
+
 
 @bp.route('/upload-portfolio', methods=['POST'])
 def upload_portfolio():
@@ -153,6 +131,7 @@ def upload_portfolio():
         Portfolio.upload_portfolio(file)
 
     return jsonify({"status": "success"})
+
 
 @bp.route("/script/index.js")
 def scriptIndex():
