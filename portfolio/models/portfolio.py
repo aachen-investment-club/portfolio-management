@@ -206,10 +206,17 @@ class Portfolio():
             })
 
         self.trades = pd.DataFrame(rows)
+        self.trades[TR_DATE] = pd.to_datetime(self.trades[TR_DATE]) 
         self.trades = self.trades.set_index([TR_TICKER, TR_DATE]).sort_index()
 
         # ✅ RECOMPUTE STATE FROM EXISTING METHODS
         prices = self.get_prices_ts()
+        if prices.empty or self.trades.empty:
+            # If there are no trades or no price data available, positions and cash are zero
+            self.current_position = {}
+            self.cash = 0.0
+            return 
+        
         positions = self.get_positions_ts()
 
         positions = positions.reindex(prices.index, method="ffill").fillna(0)

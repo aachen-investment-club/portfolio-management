@@ -11,3 +11,4 @@ sphinx==8.2.3
 sphinx-autoapi==3.6.1
 furo==2025.9.25
 scipy==1.16.3
+yfinance==1.0

@@ -1,4 +1,4 @@
-from typing import List, Iterable
+from typing import List, Iterable, Optional
 from datetime import datetime, date, timedelta
 
 import pandas as pd
@@ -7,6 +7,7 @@ import requests
 import json
 import os
 
+from models.yfinance_wrapper import YFinanceProvider
 from sqlalchemy import (
     select,
     and_,
@@ -67,6 +68,65 @@ class Market:
         required = {"ticker", "date", "price_close"}
         if not required.issubset(df.columns):
             raise ValueError(f"CSV must contain columns {required}")
+
+        df["date"] = pd.to_datetime(df["date"])
+
+
+        df = df.drop_duplicates(subset=["ticker", "date"], keep="last")
+
+        records = df.to_dict(orient="records")
+        inserted = 0
+
+        with Session(engine) as session:
+            for i in range(0, len(records), batch_size):
+                batch = records[i:i + batch_size]
+
+                stmt = (
+                    insert(MarketDB)
+                    .values(batch)
+                    .on_conflict_do_nothing(
+                        index_elements=["ticker", "date"]
+                    )
+                )
+
+                result = session.execute(stmt)
+                inserted += result.rowcount or 0
+
+            session.commit()
+            
+
+        return inserted
+    
+
+
+    @classmethod
+    def load_from_yfinance(cls, tickers: Optional[List[str]] = None, batch_size: int = 300 ) -> int:
+
+        if tickers is None:
+            tickers = ["^GSPC"]
+
+        res_dict = YFinanceProvider.get_historical_data(tickers)
+        print(f"My values are: {res_dict}")
+
+        all_records = []
+        for ticker, data_list in res_dict.items():
+            for entry in data_list:
+                entry['ticker'] = ticker
+                all_records.append(entry)
+
+        df = pd.DataFrame(all_records)
+        print(f"My dataframe is: {df}")
+
+        df = df.rename(
+            columns={
+                "ticker": "ticker",
+                "date": "date",
+                "price close": "price_close",
+            }
+        )
+        required = {"ticker", "date", "price_close"}
+        if not required.issubset(df.columns):
+            raise ValueError(f"Dataframe must contain columns {required}, but has {df.columns.values}")
 
         df["date"] = pd.to_datetime(df["date"])
 
