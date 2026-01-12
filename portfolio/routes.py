@@ -1,92 +1,70 @@
-from __main__ import app, cache
 
-import os
-
+from flask import Blueprint, render_template, request, jsonify
+import os, datetime
 import pandas as pd
-from models.alpaca_wrapper import Alpaca
-from models.portfolio import Portfolio
-from models.metrics import Metrics
-from models.market import Market
 
-from flask import Flask
-from flask import render_template
-from flask import request,jsonify
-from models.market import Market
+from portfolio.models.portfolio import Portfolio
+from portfolio.models.metrics import Metrics
+from portfolio.models.market import Market
+from portfolio.schemas.market import Base
+from portfolio.utils.aws_config import engine
+from portfolio.extensions import cache  
 
-from schemas.market import Base
-from utils.aws_config import engine
-from models.metrics import Metrics
-import datetime
+bp = Blueprint("bp", __name__)
+
 
 Base.metadata.create_all(engine)
 
 
-
-@app.route("/health")
+@bp.route("/health")
 def health():
     return "healthy"
 
 
-
-@app.route("/load_market")
-def load_market():
-
-    Market.load_from_csv("./data/sp500_close_current.csv")
-
-    return {"status":"success"}
-
-
-
-@app.route("/update_market")
+@bp.route("/update_market")
 def update_market():
 
     Market.update_market()
 
-    return {"status":"success"}
+    return {"status": "success"}
 
 
-
-
-@cache.memoize(timeout = 600)
+@cache.memoize(timeout=600)
 def get_cached_nav_data(
-        selected_data, 
-        initial_cash, 
-        leverage_limit, 
-
-    ):
-    portfolio= Portfolio(initial_cash, leverage_limit)
+        selected_data,
+        initial_cash,
+        leverage_limit):
+    portfolio = Portfolio(initial_cash, leverage_limit)
     portfolio.import_from_dict(selected_data)
     nav = portfolio.get_daily_nav()
 
     return portfolio, nav
 
-@cache.memoize(timeout = 600)
+
+@cache.memoize(timeout=600)
 def get_cached_bonds_data():
     return Market.get_us_treasury_bonds()
 
 
-@app.route("/")
+@bp.route("/")
 def index():
-
-    if Market.check_empty(): 
-
-        Market.load_from_csv("./data/sp500_close_current.csv")
 
     initial_cash = request.args.get("cash", default=1000000, type=float)
     leverage_limit = request.args.get("leverage", default=100000, type=float)
-    default_start= datetime.datetime(2000, 1, 3).date().strftime('%Y-%m-%d')
+    default_start = datetime.datetime(2000, 1, 3).date().strftime('%Y-%m-%d')
 
-    start_date= request.args.get("start_date", default=default_start) or default_start #: this is important for edge cases
-    
+    start_date = request.args.get("start_date", default=default_start) or default_start
+    #: this is important for edge cases
     start_date = pd.to_datetime(datetime.datetime.strptime(start_date, '%Y-%m-%d').date())
 
 
-    default_end= Market.get_latest_date_in_db().strftime('%Y-%m-%d')
+    default_end = Market.get_latest_date_in_db().strftime('%Y-%m-%d')
 
 
-    end_date= request.args.get("end_date", default=default_end) or default_end #: this is important for edge cases
+    end_date = request.args.get("end_date", default=default_end) or default_end 
+    # this is important for edge cases
 
-    end_date= pd.to_datetime(datetime.datetime.strptime(end_date, '%Y-%m-%d').date())
+    end_date = pd.to_datetime(datetime.datetime.strptime(end_date, '%Y-%m-%d').date())
 
 
     portfolios = Portfolio.list_portfolios()
@@ -109,16 +87,14 @@ def index():
 
 
 
-    positions= portfolio.get_position_weights()
-    
-    nav= nav[nav.index>=start_date]
-    nav= nav[nav.index<= end_date]
+    positions = portfolio.get_position_weights()
+    nav = nav[nav.index>=start_date]
+    nav = nav[nav.index<= end_date]
 
-    bench_df= bench_df[bench_df.index>=start_date]
-    bench_df= bench_df[bench_df.index<=end_date]
+    bench_df = bench_df[bench_df.index>=start_date]
+    bench_df = bench_df[bench_df.index<=end_date]
 
 
-    
     #: has to be converted to a list of dicts for json 
     nav_ts = [
         {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}
@@ -130,17 +106,17 @@ def index():
         ["price close"]
         .sort_index())
 
-    
+
 
 
     port_returns = Metrics.get_daily_returns(nav)
     bench_returns = Metrics.get_daily_returns(bench_series)
-    
+
 
     portf_positions_df = portfolio.get_portfolio_positions_df() 
 
     portf_data = Market.get_historical_data(portf_positions_df["ticker"].to_list())
-    #port_weights = Metrics.get_portfolio_weights(portf_positions_df, portf_data)
+    # port_weights = Metrics.get_portfolio_weights(portf_positions_df, portf_data)
 
     metrics = {
         "total_return": f"{Metrics.get_ROI(nav):.7f}%",
@@ -152,50 +128,32 @@ def index():
         "beta": f"{Metrics.get_beta(port_returns, bench_returns):.7f}",
         "alpha": f"{Metrics.get_alpha(port_returns, bench_returns):.7f}",
         "total_value": f"${float(nav.iloc[-1]):.1f}",
-        #"value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
+        # "value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
     }
 
-
-
-
     return render_template(
-        "index.html", 
-        portfolios = portfolios, 
-        selected_key = selected_key, 
+        "index.html",
+        portfolios=portfolios,
+        selected_key=selected_key,
         metrics=metrics,
-        positions=positions, 
+        positions=positions,
         nav_ts=nav_ts,
-        initial_cash= f"{portfolio.initial_cash}",
-        leverage_limit=  f"{portfolio.leverage_limit}",
-        api_route=os.getenv("API_ROUTE"), 
+        initial_cash=f"{portfolio.initial_cash}",
+        leverage_limit=f"{portfolio.leverage_limit}",
+        api_route=os.getenv("API_ROUTE"),
     )
 
-
-
-@app.route('/upload-portfolio', methods=['POST'])
+@bp.route('/upload-portfolio', methods=['POST'])
 def upload_portfolio():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
-    
+
     file = request.files['file']
-    if file: 
+    if file:
         Portfolio.upload_portfolio(file)
-    
-    
-    
-    return jsonify({"status": "success"}),200
 
+    return jsonify({"status": "success"})
 
-
-
-
-
-
-
-
-
-
-@app.route("/script/index.js")
+@bp.route("/script/index.js")
 def scriptIndex():
-
     return render_template("index.js",  api_route=os.getenv("API_ROUTE"))

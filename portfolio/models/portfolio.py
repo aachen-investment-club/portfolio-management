@@ -1,14 +1,12 @@
-from typing import List, Dict, Tuple
+from typing import List
 
-from models.market import Market
+from portfolio.models.market import Market
 
-from datetime import datetime, timedelta
 from datetime import date as dte
 
 import pandas as pd
 import numpy as np
 import json
-import os
 import boto3
 
 TR_TYPE = "type"
@@ -16,40 +14,35 @@ TR_CURRENCY = "currency"
 TR_DATE = "date"
 TR_VOLUME = "volume"
 TR_TICKER = "ticker"
-TR_TYPE= "type"
+TR_TYPE = "type"
 
-class Portfolio(): 
+class Portfolio():
     def __init__(self, cash:float, leverage_limit:float)-> None:
         self.cash: float = cash
         self.leverage_limit: float = leverage_limit
-        self.trades:pd.DataFrame = None
-        self.current_position ={} #: observation: we assume short selling in this implementation.
+        self.trades: pd.DataFrame = None
+        self.current_position = {}
+        #: observation: we assume short selling in this implementation.
         self.initial_cash = cash
 
-    def get_portfolio_positions_df(self): 
+    def get_portfolio_positions_df(self):
         out = {
-            "ticker": [], 
-            "shares":[]
+            "ticker": [],
+            "shares": []
         }
-        for symbol,value in self.current_position.items():  
+        for symbol, value in self.current_position.items():
             out["ticker"].append(symbol)
             out["shares"].append(value)
 
-
         return pd.DataFrame(out)
 
-
-
-    def get_position_weights(self): 
-        total = 0 
-        for value in self.current_position.values(): 
-            total+=  value
-        position_weights = [{"symbol": symbol, "weight": position/ total} 
-                            for symbol, position in self.current_position.items() if position!= 0 ]
+    def get_position_weights(self):
+        total = 0
+        for value in self.current_position.values():
+            total += value
+        position_weights = [{"symbol": symbol, "weight": position / total}
+                            for symbol, position in self.current_position.items() if position != 0]
         return position_weights
-
-
-
 
     def _signed_trades(self) -> pd.DataFrame:
         trades = self.trades.reset_index()
@@ -61,6 +54,7 @@ class Portfolio():
         )
 
         return trades[[TR_DATE, TR_TICKER, "signed_qty"]]
+
     def get_positions_ts(self) -> pd.DataFrame:
         trades = self._signed_trades()
 
@@ -80,7 +74,7 @@ class Portfolio():
         )
 
         return daily_flows.cumsum()
-        
+
     def get_prices_ts(self) -> pd.DataFrame:
         tickers = (
             self.trades
@@ -97,16 +91,15 @@ class Portfolio():
             .pivot_table(
                 index="date",
                 columns="ticker",
-                values="price_close",   
+                values="price_close",
                 aggfunc="last",
             )
             .sort_index()
         )
 
         prices.index = pd.to_datetime(prices.index).normalize()
-        return prices    
+        return prices
 
-    
     def get_cash_ts(self, dates: pd.Index) -> pd.Series:
         trades = self.trades.reset_index()
         prices = self.get_prices_ts()
@@ -133,8 +126,6 @@ class Portfolio():
 
         return self.initial_cash + daily_cash
 
-
-
     def get_daily_nav(self) -> pd.Series:
         positions = self.get_positions_ts()
         prices = self.get_prices_ts()
@@ -142,13 +133,10 @@ class Portfolio():
         positions = positions.reindex(prices.index, method="ffill").fillna(0)
 
         """
-        the core idea of this formula: 
+        the core idea of this formula:
 
-        nav_t = cash_t + sum_{assset}(position(asset, t)*price(asset, t) ) 
+        nav_t = cash_t + sum_{assset}(position(asset, t)*price(asset, t) )
         """
-
-
-
 
         market_value = (positions * prices).sum(axis=1)
         cash = self.get_cash_ts(prices.index)
@@ -157,35 +145,28 @@ class Portfolio():
         nav.name = "NAV"
         return nav
 
-
- 
-
-
-
-    @staticmethod 
+    @staticmethod
     def list_portfolios():
         client = boto3.client("s3")
         bucket = "portfolio-management-developer"
         prefix = "portfolios/"
-        objects=  client.list_objects_v2( Bucket = bucket, Prefix = prefix)
+        objects = client.list_objects_v2(Bucket=bucket, Prefix=prefix)
 
-        portfolios_names = [object["Key"] for object in objects["Contents"] if object["Key"]!= prefix]
+        portfolios_names = [
+                object["Key"] for object in objects["Contents"]
+                if object["Key"] != prefix]
 
-        portfolios= {}
-        for file_name in portfolios_names: 
+        portfolios = {}
+        for file_name in portfolios_names:
             response = client.get_object(
-                Bucket = bucket, 
-                Key = file_name
+                Bucket=bucket,
+                Key=file_name
             )
             text = response["Body"].read().decode("utf-8")
-            log  = json.loads(text)
-            portfolios[file_name]= log
-
-
+            log = json.loads(text)
+            portfolios[file_name] = log
         return portfolios
 
-
-  
     def import_from_dict(self, data):
         """
         imports a FULL trades log and:
@@ -230,12 +211,10 @@ class Portfolio():
 
         self.cash = float(self.get_cash_ts(prices.index).loc[last_date])
 
-
-
-    def import_from_json(self, path): 
+    def import_from_json(self, path):
         """
-        imports a FULL trades log and: 
-        - saves the trades 
+        imports a FULL trades log and:
+        - saves the trades
         - updates the current position
         - updates current cash
         """
@@ -244,31 +223,28 @@ class Portfolio():
             data = json.load(file)
             rows = []
 
-            for transaction in data["transactions"]: 
+            for transaction in data["transactions"]:
                 rows.append({
-                    TR_TICKER:transaction["security"]["ticker"], 
-                    TR_CURRENCY:transaction["currency"], 
-                    TR_TYPE:transaction["type"],
-                    TR_DATE:pd.Timestamp(transaction["date"]), 
-                    TR_VOLUME:float(transaction["shares"]) 
+                    TR_TICKER: transaction["security"]["ticker"],
+                    TR_CURRENCY: transaction["currency"],
+                    TR_TYPE: transaction["type"],
+                    TR_DATE: pd.Timestamp(transaction["date"]),
+                    TR_VOLUME: float(transaction["shares"])
                 })
 
-            #: TODO: consider the operation type; add options to reconstruct portfolio states.  
+            #: TODO: consider the operation type; add options to reconstruct portfolio states
 
+            self.trades = pd.DataFrame(rows)
+            self.trades = self.trades \
+                .set_index([TR_TICKER, TR_DATE]).sort_index()
 
-            self.trades= pd.DataFrame(rows)
-            self.trades=self.trades.set_index([TR_TICKER, TR_DATE]).sort_index()
-            
             today = dte.today()
-            self.current_position, self.cash = self.get_position(dte.today())
+            self.current_position, self.cash = self.get_position(today)
 
-
-
-    def get_owned_securities(self) -> List[str]: 
+    def get_owned_securities(self) -> List[str]:
         return list(self.current_position.keys())
 
-
-    def get_buy_prices(self, ticker: str): 
+    def get_buy_prices(self, ticker: str):
         asset_df = self.trades.loc[[ticker]].reset_index()
         asset_df["price"] = asset_df[TR_DATE].apply(
             lambda x: Market.get_price(ticker, x.date())
@@ -279,54 +255,40 @@ class Portfolio():
         prices = self.get_prices_ts()
         return float(prices[ticker].iloc[-1])
 
-
     def get_gross_exposure(self) -> float:
         positions = self.get_positions_ts().iloc[-1]
         prices = self.get_prices_ts().iloc[-1]
         return float((positions.abs() * prices).sum())
 
+    def get_net_asset_value(self) -> float:
+        return self.cash + self.get_gross_exposure()
 
-
-
-    def get_net_asset_value(self) -> float: 
-        return self.cash+ self.get_gross_exposure()
-
-   
-
-
-
-    
-    def summary(self)-> dict: 
-        
+    def summary(self) -> dict:
         #: TODO: extend this with positions (?)
         return {
-            "cash": self.cash, 
-            "gross_exposure": self.get_gross_exposure(), 
+            "cash": self.cash,
+            "gross_exposure": self.get_gross_exposure(),
             "net_asset_value": self.get_net_asset_value()
         }
 
-    
-
-
-    def check_leverage(self, new_cash, new_positions): 
+    def check_leverage(self, new_cash, new_positions):
         gross = sum(abs(qty) * self._latest_price(p) for p, qty in new_positions.items())
         net_value = new_cash + sum(qty * self._latest_price(p) for p, qty in new_positions.items())
         leverage = gross / max(net_value, 1e-8)
         return leverage <= self.leverage_limit
 
-    def get_current_leverage(self): 
+    def get_current_leverage(self):
         gross = sum(abs(qty) * self._latest_price(p) for p, qty in self.current_position.items())
-        net_value = self.cash+ sum(qty * self._latest_price(p) for p, qty in self.current_position.items())
+        net_value = self.cash + sum(qty * self._latest_price(p) \
+            for p, qty in self.current_position.items())
         leverage = gross / max(net_value, 1e-8)
-        return leverage 
-
+        return leverage
 
     @staticmethod
-    def upload_portfolio(file): 
+    def upload_portfolio(file):
 
         if file and file.filename.endswith('.json'):
             filename = file.filename
-            
 
             s3_client = boto3.client("s3")
             bucket = "portfolio-management-developer"
@@ -337,6 +299,3 @@ class Portfolio():
                 f"portfolios/{filename}",
                 ExtraArgs={"ContentType": "application/json"}
             )
-
-
-

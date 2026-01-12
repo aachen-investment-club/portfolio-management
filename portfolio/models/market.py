@@ -1,5 +1,5 @@
 from typing import List, Iterable, Optional
-from datetime import datetime, date, timedelta
+from datetime import datetime, timedelta
 
 import pandas as pd
 import numpy as np
@@ -14,11 +14,10 @@ from sqlalchemy import (
     func
 )
 from sqlalchemy.dialects.sqlite import insert
-from sqlalchemy.orm import Session, Mapped, mapped_column
-from sqlalchemy import String, DateTime, Float
+from sqlalchemy.orm import Session
 
-from utils.aws_config import engine
-from schemas.market import Base, MarketDB
+from portfolio.utils.aws_config import engine
+from portfolio.schemas.market import MarketDB
 from alpaca.trading import GetCalendarRequest
 from alpaca.trading.client import TradingClient
 from alpaca.data.requests import StockBarsRequest
@@ -37,65 +36,55 @@ class Market:
     """
     US_TREASURY_API = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/"
 
-
-
-    @classmethod 
-    def check_empty(cls): 
-        #stmt = select(func.count(MarketDB.ticker))
+    @classmethod
+    def check_empty(cls):
         stmt = select(MarketDB.ticker).limit(1)
         with Session(engine) as session:
-            #: in contrast to scalars, scalar selects the first ie equivalent 
+            #: in contrast to scalars, scalar selects the first ie equivalent
             # to .execute().first()
-            result = session.scalar(stmt) 
+            result = session.scalar(stmt)
             return result is None
 
-
-        
-
-
-
     @classmethod
-    def load_from_csv(cls, path: str, batch_size: int = 300) -> int:
-        df = pd.read_csv(path)
+    def load_from_csv(cls, path: str, batch_size: int = 5_000) -> int:
+        
+        total_inserted = 0
 
-        df = df.rename(
-            columns={
-                "Ticker": "ticker",
-                "Date": "date",
-                "Price Close": "price_close",
-            }
-        )
-        required = {"ticker", "date", "price_close"}
-        if not required.issubset(df.columns):
-            raise ValueError(f"CSV must contain columns {required}")
-
-        df["date"] = pd.to_datetime(df["date"])
-
-
-        df = df.drop_duplicates(subset=["ticker", "date"], keep="last")
-
-        records = df.to_dict(orient="records")
-        inserted = 0
 
         with Session(engine) as session:
-            for i in range(0, len(records), batch_size):
-                batch = records[i:i + batch_size]
+            for chunk in pd.read_csv(path, chunksize=batch_size):
+                """
+                due to production memory constraints it is important to 
+                read the csv file in chunks!
+                """
+
+                print(total_inserted)
+                chunk = chunk.rename(columns={
+                    "Ticker": "ticker",
+                    "Date": "date",
+                    "Price Close": "price_close",
+                })
+
+                chunk["date"] = pd.to_datetime(chunk["date"]).dt.floor("D")
+
+                chunk = chunk.drop_duplicates(subset=["ticker", "date"], keep="last")
+
+                records = chunk.to_dict(orient="records")
+                if not records:
+                    continue
 
                 stmt = (
                     insert(MarketDB)
-                    .values(batch)
-                    .on_conflict_do_nothing(
-                        index_elements=["ticker", "date"]
-                    )
+                    .values(records)
+                    .on_conflict_do_nothing(index_elements=["ticker", "date"])
                 )
 
                 result = session.execute(stmt)
-                inserted += result.rowcount or 0
+                total_inserted += result.rowcount or 0
 
-            session.commit()
-            
+                session.commit()
 
-        return inserted
+        return total_inserted 
     
 
 
@@ -158,8 +147,6 @@ class Market:
 
     @classmethod
     def get_price(cls, ticker: str, date: datetime.date)->np.float64: 
-        
-        print(date)
         if ticker not in cls.get_traded_assets():
             #:TODO: make this error more expressive (indicate whether ticker or date error)
             raise Exception("the selected ticker is not traded in the market")
@@ -184,7 +171,6 @@ class Market:
             raise LookupError(f"No price for {ticker} on {date}")
 
         return float(result)
-       
 
     @classmethod
     def get_trading_days(cls) -> List:
@@ -193,14 +179,12 @@ class Market:
         with Session(engine) as session:
             return [d.date() for d in session.scalars(stmt)]
 
-
     @classmethod
     def get_traded_assets(cls) -> List[str]:
         stmt = select(MarketDB.ticker).distinct().order_by(MarketDB.ticker)
 
         with Session(engine) as session:
             return list(session.scalars(stmt))
-
 
     @classmethod
     def get_us_treasury_bonds(cls) -> pd.DataFrame:
@@ -222,38 +206,37 @@ class Market:
         )
 
         if response:
-            data = json.loads(response.content) ["data"]
+            data = json.loads(response.content)["data"]
 
             df = pd.DataFrame(data)
 
             df = df[["record_date", "avg_interest_rate_amt", "security_desc"]]
-            df= df[df["security_desc"]== "Treasury Bonds"] 
+            df = df[df["security_desc"]== "Treasury Bonds"]
 
             df["record_date"] = pd.to_datetime(df["record_date"])
-            df["avg_interest_rate_amt"] = pd.to_numeric(df["avg_interest_rate_amt"], errors = "coerce")
+            df["avg_interest_rate_amt"] = pd.to_numeric(
+                df["avg_interest_rate_amt"],
+                errors="coerce")
 
             df.dropna(inplace= True, axis = 0) 
             df = df.set_index(keys = "record_date")
 
-            df.drop(columns= ["security_desc"], inplace=True)
-            df = df.rename(columns = {"avg_interest_rate_amt":"price close"})
+            df.drop(columns=["security_desc"], inplace=True)
+            df = df.rename(columns={"avg_interest_rate_amt": "price close"})
             df.index.name = "date"
             return df
         else:
             raise Exception("Error: US Treasury API sent no response")
 
-
     @classmethod
     def get_latest_date_in_db(cls): 
         with Session(engine) as session:
-            latest_db_date= session.query(func.max(MarketDB.date)).scalar().date()
+            latest_db_date = session.query(func.max(MarketDB.date)).scalar().date()
             return latest_db_date
-
-
-
 
     @classmethod
     def update_market(cls):
+        print("started updating market")
         trading_client = TradingClient(
             api_key=os.getenv("APCA_API_KEY_ID"),
             secret_key=os.getenv("APCA_API_SECRET_KEY")
@@ -266,20 +249,19 @@ class Market:
         today = datetime.now().date()
         yesterday = today - timedelta(days=1)
 
-
-        # we can use the calendar api to be sure.
+        # we can use the calendar api to be sure
         calendar_req = GetCalendarRequest(start=today - timedelta(days=5), end=yesterday)
         calendar = trading_client.get_calendar(calendar_req)
-        
         target_end_date = calendar[-1].date
-        
         with Session(engine) as session:
             latest_db_date_raw = session.query(func.max(MarketDB.date)).scalar()
-            latest_db_date = latest_db_date_raw.date() if latest_db_date_raw else None
+            latest_db_date = latest_db_date_raw.date() \
+                if latest_db_date_raw else None
 
         if latest_db_date and latest_db_date >= target_end_date:
             #: if so, then dw dont need the update
-            return 
+            print("no update necessary")
+            return
 
         start_fetch = (latest_db_date + timedelta(days=1)) if latest_db_date else (target_end_date - timedelta(days=365))
 
@@ -289,15 +271,8 @@ class Market:
             timeframe=TimeFrame.Day,
             start=datetime.combine(start_fetch, datetime.min.time()),
             end=datetime.combine(target_end_date, datetime.max.time()),
-            #feed='IEX' # Safest for free tier
+            # feed='IEX' # Safest for free tier
         )
-
-        bars = data_client.get_stock_bars(request_params)
-
-
-
-
-
 
         bars = data_client.get_stock_bars(request_params)
 
@@ -310,10 +285,11 @@ class Market:
                     "close": "price_close"
                 }
             )
-            df_bars['date'] = df_bars['date'].dt.tz_localize(None).dt.floor('D')
+            df_bars['date'] = df_bars['date'] \
+                .dt.tz_localize(None).dt.floor('D')
 
-            #: OBSERVATION: remember that sqlalchemy has a limitation for the 
-            # number of sim. write operations (per query)--> batching is necessary!!
+            #: OBSERVATION: remember that sqlalchemy has a limitation for the
+            # number of sim. write operations (per query) --> batching is necessary
             records = df_bars.to_dict(orient="records")
             inserted = 0
 
@@ -323,29 +299,27 @@ class Market:
                     stmt = (
                         insert(MarketDB)
                         .values(batch)
-                        .on_conflict_do_nothing(index_elements=["ticker", "date"])
+                        .on_conflict_do_nothing(
+                            index_elements=["ticker", "date"]
+                            )
                     )
                     result = session.execute(stmt)
                     inserted += result.rowcount or 0
                 session.commit()
+        print("market updated")
 
-
-
-
-
-
+        
 
     @staticmethod
     def is_trading_day(date) -> bool:
         client = TradingClient(
             api_key=os.getenv("APCA_API_KEY_ID"),
             secret_key=os.getenv("APCA_API_SECRET_KEY"),
-            paper=True, 
+            paper=True,
 
         )
         request = GetCalendarRequest(start=date, end=date)
-        return bool(client.get_calendar(request))  
-    
+        return bool(client.get_calendar(request))
 
     @staticmethod
     def get_latest_trading_day():
@@ -354,8 +328,6 @@ class Market:
             today = today+timedelta(days=-1)
         return today
 
-
-    
     @classmethod
     def get_historical_data(
         cls,
@@ -408,4 +380,3 @@ class Market:
         )
 
         return pd.read_sql(stmt, engine)
-

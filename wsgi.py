@@ -1,0 +1,1 @@
+from portfolio.__main__ import app

@@ -7,6 +7,8 @@ venv/
 # Python
 **/__pycache__/
 
+cred/
+.*.pem
 # VS Code
 .vscode/
 
@@ -22,3 +24,6 @@ data/
 
 app.db
 market.db
+
+
+notes.md
