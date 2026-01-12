@@ -2,14 +2,14 @@ from flask import request, session
 
 import pandas as pd
 
-from models.metrics import Metrics
-from models.alpaca_wrapper import Alpaca
+from portfolio.models.metrics import Metrics
+from portfolio.models.alpaca_wrapper import Alpaca
 from utils.simulation import add_trade, clear_simulation, get_simulation
 from utils.simulate import simulate
 from utils.portfolio_builder import build_real_portfolio
 
 
-from __main__ import app
+from portfolio.__main__ import app
 
 
 @app.route("/api/portfolio", methods=["POST"])

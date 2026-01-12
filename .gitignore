@@ -7,6 +7,8 @@ venv/
 # Python
 **/__pycache__/
 
+cred/
+.*.pem
 # VS Code
 .vscode/
 
@@ -24,3 +26,6 @@ flask_session/
 
 app.db
 market.db
+
+
+notes.md

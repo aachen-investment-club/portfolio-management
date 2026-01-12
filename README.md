@@ -20,8 +20,17 @@ pip install -r requirements.txt
 4. To run the application, simply run
 
 ```
-python3.12 portfolio
+python3.12 -m portfolio
 ```
+
+
+5. To manually update the market run  
+
+```
+python3.12 market_updater.py
+```
+
+
 
 ## Automatic API documentation
 

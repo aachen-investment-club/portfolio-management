@@ -1,5 +1,5 @@
 from typing import List, Iterable
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 import numpy as np
@@ -15,8 +15,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
-from utils.aws_config import engine
-from schemas.market import MarketDB
+from portfolio.utils.aws_config import engine
+from portfolio.schemas.market import MarketDB
 from alpaca.trading import GetCalendarRequest
 from alpaca.trading.client import TradingClient
 from alpaca.data.requests import StockBarsRequest
@@ -45,44 +45,50 @@ class Market:
             return result is None
 
     @classmethod
-    def load_from_csv(cls, path: str, batch_size: int = 300) -> int:
-        df = pd.read_csv(path)
+    def load_from_csv(cls, path: str, batch_size: int = 5_000) -> int:
+        
+        total_inserted = 0
 
-        df = df.rename(
-            columns={
-                "Ticker": "ticker",
-                "Date": "date",
-                "Price Close": "price_close",
-            }
-        )
-        required = {"ticker", "date", "price_close"}
-        if not required.issubset(df.columns):
-            raise ValueError(f"CSV must contain columns {required}")
-
-        df["date"] = pd.to_datetime(df["date"])
-        df = df.drop_duplicates(subset=["ticker", "date"], keep="last")
-
-        records = df.to_dict(orient="records")
-        inserted = 0
 
         with Session(engine) as session:
-            for i in range(0, len(records), batch_size):
-                batch = records[i:i + batch_size]
+            for chunk in pd.read_csv(path, chunksize=batch_size):
+                """
+                due to production memory constraints it is important to 
+                read the csv file in chunks!
+                """
+
+                print(total_inserted)
+                chunk = chunk.rename(columns={
+                    "Ticker": "ticker",
+                    "Date": "date",
+                    "Price Close": "price_close",
+                })
+
+                chunk["date"] = pd.to_datetime(chunk["date"]).dt.floor("D")
+
+                chunk = chunk.drop_duplicates(subset=["ticker", "date"], keep="last")
+
+                records = chunk.to_dict(orient="records")
+                if not records:
+                    continue
 
                 stmt = (
                     insert(MarketDB)
-                    .values(batch)
-                    .on_conflict_do_nothing(
-                        index_elements=["ticker", "date"]
-                    )
+                    .values(records)
+                    .on_conflict_do_nothing(index_elements=["ticker", "date"])
                 )
 
                 result = session.execute(stmt)
-                inserted += result.rowcount or 0
+                total_inserted += result.rowcount or 0
 
-            session.commit()
+                session.commit()
 
-        return inserted
+        return total_inserted 
+    
+   
+
+   
+
 
     @classmethod
     def get_price(cls, ticker: str, date: datetime.date)->np.float64: 
@@ -175,6 +181,7 @@ class Market:
 
     @classmethod
     def update_market(cls):
+        print("started updating market")
         trading_client = TradingClient(
             api_key=os.getenv("APCA_API_KEY_ID"),
             secret_key=os.getenv("APCA_API_SECRET_KEY")
@@ -198,6 +205,7 @@ class Market:
 
         if latest_db_date and latest_db_date >= target_end_date:
             #: if so, then dw dont need the update
+            print("no update necessary")
             return
 
         start_fetch = (latest_db_date + timedelta(days=1)) if latest_db_date else (target_end_date - timedelta(days=365))
@@ -243,6 +251,9 @@ class Market:
                     result = session.execute(stmt)
                     inserted += result.rowcount or 0
                 session.commit()
+        print("market updated")
+
+        
 
     @staticmethod
     def is_trading_day(date) -> bool:

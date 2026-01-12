@@ -1,37 +1,32 @@
-from __main__ import app, cache
 
-import os
-
+from flask import Blueprint, render_template, request, jsonify
+import os, datetime
 import pandas as pd
-from models.portfolio import Portfolio
-from models.metrics import Metrics
-from models.market import Market
 
 from flask import render_template
 from flask import request, jsonify
 from flask import session
+from portfolio.models.portfolio import Portfolio
+from portfolio.models.metrics import Metrics
+from portfolio.models.market import Market
+from portfolio.schemas.market import Base
+from portfolio.utils.aws_config import engine
+from portfolio.extensions import cache  
 
-from schemas.market import Base
-from utils.aws_config import engine
-import datetime
+bp = Blueprint("bp", __name__)
+
 
 Base.metadata.create_all(engine)
 
 
-@app.route("/health")
+@bp.route("/health")
 def health():
     return "healthy"
 
 
-@app.route("/load_market")
-def load_market():
-    Market.load_from_csv("./data/sp500_close_current.csv")
-
-    return {"status": "success"}
-
-
-@app.route("/update_market")
+@bp.route("/update_market")
 def update_market():
+
     Market.update_market()
 
     return {"status": "success"}
@@ -54,10 +49,8 @@ def get_cached_bonds_data():
     return Market.get_us_treasury_bonds()
 
 
-@app.route("/")
+@bp.route("/")
 def index():
-    if Market.check_empty():
-        Market.load_from_csv("./data/sp500_close_current.csv")
 
     initial_cash = request.args.get("cash", default=1000000, type=float)
     leverage_limit = request.args.get("leverage", default=100000, type=float)
@@ -153,7 +146,7 @@ def index():
         api_route=os.getenv("API_ROUTE"),
     )
 
-@app.route('/upload-portfolio', methods=['POST'])
+@bp.route('/upload-portfolio', methods=['POST'])
 def upload_portfolio():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
@@ -164,6 +157,6 @@ def upload_portfolio():
 
     return jsonify({"status": "success"})
 
-@app.route("/script/index.js")
+@bp.route("/script/index.js")
 def scriptIndex():
     return render_template("index.js",  api_route=os.getenv("API_ROUTE"))
