@@ -21,6 +21,7 @@ docs/_templates/
 data/
 .*.jpeg
 
+/notebooks
 
 app.db
 market.db

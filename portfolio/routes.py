@@ -9,6 +9,9 @@ from portfolio.models.market import Market
 from portfolio.schemas.market import Base
 from portfolio.utils.aws_config import engine
 from portfolio.extensions import cache  
+import io
+import csv
+import json
 
 bp = Blueprint("bp", __name__)
 
@@ -150,7 +153,12 @@ def upload_portfolio():
 
     file = request.files['file']
     if file:
-        Portfolio.upload_portfolio(file)
+        file.stream.seek(0)
+        with io.TextIOWrapper(file.stream, encoding="utf-32-le", newline="") as f:
+            reader = csv.DictReader(f, delimiter=";")
+            rows = list(reader)
+            data = Portfolio.import_from_csv(rows)
+            Portfolio.upload_portfolio(data, file.filename.replace("csv", "json"))
 
     return jsonify({"status": "success"})
 
