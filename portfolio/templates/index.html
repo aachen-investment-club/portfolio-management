@@ -2,6 +2,8 @@
 {% from 'components/metrics.html' import MetricCard %}
 {% from 'components/simulation.html' import SimulationPanel%}
 {% from 'components/positions.html' import PositionsContainer%}
+{% from 'components/purchase_simulation.html' import PurchaseSimulationPanel %}
+
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
     <head>
@@ -19,8 +21,8 @@
             <div class="row min-vh-100 g-3">
 
                 <!-- Sidebar -->
-                <aside class="col-12 col-lg-2">
-                    <div class="bg-dark-subtle rounded p-3 h-100">
+                <aside class="col-12 col-lg-2 d-flex flex-column gap-3">
+                    <div class="bg-dark-subtle rounded p-3 h-50">
                         <h5 class="mb-3">Portfolios</h5>
 
                         <form method="get">
@@ -48,6 +50,10 @@
 
 
                     </div>
+
+                 <div class="bg-dark-subtle rounded p-3">
+                    {{ PurchaseSimulationPanel() }}
+                </div>
                 </aside>
 
                 <!-- Main Content -->
@@ -83,13 +89,13 @@
                         {{ MetricCard("Total Return", metrics.total_return, id="kpi-total-return") }}
                         {{ MetricCard("Total Value", metrics.total_value, id="kpi-total-value") }}
                         {{ MetricCard("Cash", metrics.cash, id="kpi-cash") }}
-                        {{ MetricCard("Volatility", metrics.volatility) }}
+                        {{ MetricCard("Volatility", metrics.volatility, id="kpi-volatility") }}
                     </div>
                     <div class="row g-3 mb-3">
-                        {{ MetricCard("Sharpe Ratio", metrics.sharpe) }}
+                        {{ MetricCard("Sharpe Ratio", metrics.sharpe, id="kpi-sharpe") }}
                         {{ MetricCard("Jensen's Alpha", metrics.alpha, id="kpi-alpha") }}
-                        {{ MetricCard("Beta", metrics.beta) }}
-                        {{ MetricCard("Max Drawdown", metrics.max_drawdown) }}
+                        {{ MetricCard("Beta", metrics.beta, id="kpi-beta") }}
+                        {{ MetricCard("Max Drawdown", metrics.max_drawdown, id="kpi-max-drawdown") }}
                     </div>
                     <div class="row g-3 mb-3">
                         {{ MetricCard("CAGR", metrics.cagr, id="kpi-cagr") }}
@@ -111,6 +117,5 @@
 
         <script src="/script/index.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-        <script src="/script/index.js"></script>
     </body>
 </html>

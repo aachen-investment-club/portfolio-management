@@ -9,6 +9,7 @@ from models.market import Market
 
 from flask import render_template
 from flask import request, jsonify
+from flask import session
 
 from schemas.market import Base
 from utils.aws_config import engine
@@ -139,7 +140,7 @@ def index():
         "total_value": f"${float(nav.iloc[-1]):.1f}",
         # "value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
     }
-
+    session["base_portfolio"] = selected_data
     return render_template(
         "index.html",
         portfolios=portfolios,

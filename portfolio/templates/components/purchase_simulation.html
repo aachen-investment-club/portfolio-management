@@ -1,0 +1,25 @@
+{% macro PurchaseSimulationPanel() %}
+<div class="bg-dark-subtle rounded p-3 mt-3">
+    <h5 class="mb-3">Purchase Simulation</h5>
+
+    <div class="mb-2">
+        <label class="form-label small">Buy Date</label>
+        <input id="sim-date" type="date" class="form-control form-control-sm">
+    </div>
+
+    <div class="mb-2">
+        <label class="form-label small">Ticker</label>
+        <input id="sim-ticker" class="form-control form-control-sm" placeholder="NVDA, AAPL, TSLA">
+    </div>
+
+    <div class="mb-2">
+        <label class="form-label small">Cash ($)</label>
+        <input id="sim-cash" type="number" class="form-control form-control-sm" value="10000">
+    </div>
+
+    <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-warning btn-sm flex-fill" onclick="simulate()">Simulate</button>
+        <button class="btn btn-secondary btn-sm flex-fill" onclick="undo()">Undo</button>
+    </div>
+</div>
+{% endmacro %}
