@@ -23,6 +23,7 @@ data/
 
 # Flask sessions
 flask_session/
+notebooks/
 
 app.db
 market.db
