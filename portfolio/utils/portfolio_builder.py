@@ -1,5 +1,5 @@
-from models.portfolio import Portfolio
-from models.market import Market
+from portfolio.models.portfolio import Portfolio
+from portfolio.models.market import Market
 
 def build_real_portfolio(portfolio_key, initial_cash, leverage_limit):
     portfolios = Portfolio.list_portfolios()

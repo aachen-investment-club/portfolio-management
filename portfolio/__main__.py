@@ -1,4 +1,4 @@
-from models.market import Market
+from portfolio.models.market import Market
 
 from flask import Flask
 from flask_cors import CORS

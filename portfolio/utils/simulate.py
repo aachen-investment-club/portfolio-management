@@ -1,7 +1,7 @@
 import pandas as pd
-from models.portfolio import Portfolio
-from models.metrics import Metrics
-from models.market import Market
+from portfolio.models.portfolio import Portfolio
+from portfolio.models.metrics import Metrics
+from portfolio.models.market import Market
 
 def simulate(base_data, trades, initial_cash, leverage):
     data = dict(base_data)
