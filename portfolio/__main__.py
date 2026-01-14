@@ -2,14 +2,24 @@
 
 from flask import Flask
 from flask_cors import CORS
+from flask_caching import Cache
+from flask_session import Session 
+
 from dotenv import load_dotenv
 
 from portfolio.extensions import cache
 from portfolio.routes import bp
+from portfolio.backend import bp_api
 
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = "super-secret-key"  
+app.config["SESSION_TYPE"] = "filesystem" 
+
+Session(app) 
+
+#cache = Cache(app)
 CORS(app)
 
 
@@ -18,6 +28,7 @@ cache.init_app(app, config={
     "CACHE_DEFAULT_TIMEOUT": 300,
 })
 app.register_blueprint(bp)
+app.register_blueprint(bp_api)
 
 from portfolio.models.market import Market
 

@@ -3,6 +3,9 @@ from flask import Blueprint, render_template, request, jsonify
 import os, datetime
 import pandas as pd
 
+from flask import render_template
+from flask import request, jsonify
+from flask import session
 from portfolio.models.portfolio import Portfolio
 from portfolio.models.metrics import Metrics
 from portfolio.models.market import Market
@@ -130,7 +133,7 @@ def index():
         "total_value": f"${float(nav.iloc[-1]):.1f}",
         # "value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
     }
-
+    session["base_portfolio"] = selected_data
     return render_template(
         "index.html",
         portfolios=portfolios,
