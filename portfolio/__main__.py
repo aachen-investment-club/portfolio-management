@@ -7,9 +7,9 @@ from flask_session import Session
 
 from dotenv import load_dotenv
 
-from extensions import cache
-from routes import bp
-from backend import bp_api
+from portfolio.extensions import cache
+from portfolio.routes import bp
+from portfolio.backend import bp_api
 
 load_dotenv()
 
