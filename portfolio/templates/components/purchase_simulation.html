@@ -29,24 +29,4 @@
         <button class="btn btn-secondary btn-sm flex-fill" onclick="undo()">Undo</button>
     </div>
 </div>
-
-<script>
-    const tickers = {{ tickers | safe }};
-    const sim_ticker_select = document.getElementById("sim-ticker-select");
-    const sim_ticker = document.getElementById("sim-ticker");
-    function tickerOnChangeHandler(e) {
-        const val = e.target.value.toUpperCase();
-        const filteredTickers = val.length > 0 ? tickers.filter(x => x.includes(val)) : tickers;
-        sim_ticker_select.innerHTML = '';
-        for (const ticker of filteredTickers) {
-            const option = document.createElement("option")
-            option.value = ticker;
-            option.innerHTML = ticker;
-            sim_ticker_select.appendChild(option);
-        }
-    }
-    sim_ticker.addEventListener("input", tickerOnChangeHandler);
-</script>
-
-
 {% endmacro %}
