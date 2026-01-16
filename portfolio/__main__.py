@@ -2,8 +2,6 @@ from portfolio.models.market import Market
 
 from flask import Flask
 from flask_cors import CORS
-from flask_caching import Cache
-from flask_session import Session 
 
 from dotenv import load_dotenv
 
@@ -14,10 +12,7 @@ from portfolio.backend import bp_api
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = "super-secret-key"  
-app.config["SESSION_TYPE"] = "filesystem" 
 
-Session(app) 
 
 #cache = Cache(app)
 CORS(app)

@@ -120,13 +120,19 @@ def index():
     simulation = json.loads(
         request.cookies.get("simulation") or "[]"
     )
-    sim_nav, sim_metrics = simulate(
-        selected_data, simulation, initial_cash, leverage)
-       
-    sim_nav_ts = [
-        {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}
-        for d, v in sim_nav.items()
-    ]
+
+    sim_nav = None
+    sim_metrics = None
+    sim_nav_ts = None
+
+    if len(simulation) > 0:
+        sim_nav, sim_metrics = simulate(
+            selected_data, simulation, initial_cash, leverage)
+        
+        sim_nav_ts = [
+            {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}
+            for d, v in sim_nav.items()
+        ]
 
 
     tickers = Market.get_all_tickers()
