@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, sesssion
+from flask import Blueprint, render_template, request, jsonify, session
 import os
 import datetime
 import pandas as pd
