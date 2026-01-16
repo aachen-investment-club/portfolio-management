@@ -1,10 +1,10 @@
-from flask import request, session, Blueprint
+from flask import request, session, Blueprint, make_response
+import json
 
 import pandas as pd
 
 from portfolio.models.metrics import Metrics
 from portfolio.models.alpaca_wrapper import Alpaca
-from portfolio.utils.simulation import add_trade, clear_simulation, get_simulation
 from portfolio.utils.simulate import simulate
 from portfolio.utils.portfolio_builder import build_real_portfolio
 
@@ -23,29 +23,22 @@ def get_real_portfolio():
 @bp_api.route("/api/simulate/purchase", methods=["POST"])
 def simulate_purchase():
     trade = request.json
-    add_trade(trade)
 
-    base = session.get("base_portfolio")
-    if base is None:
-        return {"error": "No base portfolio"}, 400
+    simulation = json.loads(
+        request.cookies.get("simulation") or "[]"
+    )
+    simulation.append(trade)
 
-    initial_cash = float(request.args.get("cash", 1000000))
-    leverage = float(request.args.get("leverage", 100000))
-
-    nav, metrics = simulate(base, get_simulation(), initial_cash, leverage)
-
-    nav_ts = [
-        {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}
-        for d, v in nav.items()
-    ]
-
-    return {"nav": nav_ts, "metrics": metrics}
+    resp = make_response("Success")
+    resp.set_cookie("simulation", json.dumps(simulation))
+    return resp
 
 
 @bp_api.route("/api/simulate/reset", methods=["POST"])
 def reset_simulation():
-    clear_simulation()
-    return {"status": "cleared"}
+    resp = make_response({"status": "cleared"})
+    resp.set_cookie("simulation", "[]")
+    return resp
 
 @bp_api.route("/api/portfolio", methods=["POST"])
 def portfolio():

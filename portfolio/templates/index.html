@@ -79,7 +79,7 @@
                     </div>
 
                  <div class="bg-dark-subtle rounded p-3">
-                    {{ PurchaseSimulationPanel() }}
+                    {{ PurchaseSimulationPanel(tickers) }}
                 </div>
                 </aside>
 
@@ -98,16 +98,15 @@
                             </div>
  
                         <!-- Positions -->
- 
-                            <div class="col-12 col-lg-4">
-                                {{
-                                    PositionsContainer(positions)
-                                }}
-                                {{
-                                    SimulationPanel(initial_cash, leverage_limit)
-                                }}
-                            </div>
-                     </div>
+                        <div class="col-12 col-lg-4">
+                            {{
+                                PositionsContainer(positions, simulation)
+                            }}
+                            {{
+                                SimulationPanel(initial_cash, leverage_limit)
+                            }}
+                        </div>
+                    </div>
 
                     <!-- Metrics -->
 
@@ -218,6 +217,8 @@
         
         <script>
             const NAV_TS = {{ nav_ts | tojson }};
+            const SIM_METRICS_TS = {{ sim_metrics | tojson }};
+            const SIM_NAV_TS = {{ sim_nav | tojson }};
         </script>
 
         <script src="/script/index.js"></script>
