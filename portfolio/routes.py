@@ -7,7 +7,7 @@ from portfolio.models.portfolio import Portfolio
 from portfolio.models.metrics import Metrics
 from portfolio.models.market import Market
 from portfolio.schemas.market import Base
-from portfolio.utils.aws_config import engine
+#from portfolio.utils.aws_config import engine
 from portfolio.extensions import cache  
 import io
 import csv
@@ -17,7 +17,7 @@ from portfolio.extensions import cache
 bp = Blueprint("bp", __name__)
 
 
-Base.metadata.create_all(engine)
+#Base.metadata.create_all(engine)
 
 
 @bp.route("/health")

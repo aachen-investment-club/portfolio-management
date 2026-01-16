@@ -13,3 +13,20 @@ class MarketDB(Base):
     ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
     date: Mapped[datetime] = mapped_column(DateTime(), primary_key=True)
     price_close: Mapped[float] = mapped_column(Float(), nullable=False)
+
+
+
+
+class TickerMeta(Base): 
+    __tablename__ = "ticker_metadata"
+
+
+    exchange = mapped_column(String())
+    shortname  = mapped_column(String() )
+    ticker = mapped_column(String(), primary_key = True )
+    longname = mapped_column(String() )
+    sector = mapped_column(String() )
+    industry = mapped_column(String() )
+    origin = mapped_column(String() )
+    type  = mapped_column(String())
+    currency  = mapped_column(String())
