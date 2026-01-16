@@ -37,7 +37,6 @@
     function tickerOnChangeHandler(e) {
         const val = e.target.value.toUpperCase();
         const filteredTickers = val.length > 0 ? tickers.filter(x => x.includes(val)) : tickers;
-        console.log(e)
         sim_ticker_select.innerHTML = '';
         for (const ticker of filteredTickers) {
             const option = document.createElement("option")
