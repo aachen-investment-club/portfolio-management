@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, session
+from flask import Blueprint, render_template, request, jsonify, make_response
 import os
 import datetime
 import pandas as pd
@@ -13,6 +13,7 @@ import io
 import csv
 import json
 from portfolio.extensions import cache
+from portfolio.utils.simulate import simulate
 
 bp = Blueprint("bp", __name__)
 
@@ -115,9 +116,19 @@ def index():
     port_returns = Metrics.get_daily_returns(nav)
     bench_returns = Metrics.get_daily_returns(bench_series)
 
-    # portf_positions_df = selecportfolio.get_portfolio_positions_df() 
-    # portf_data = Market.get_historical_data(portf_positions_df["ticker"].to_list())
-    # port_weights = Metrics.get_portfolio_weights(portf_positions_df, portf_data)
+    leverage = float(request.args.get("leverage", 100000))
+    simulation = json.loads(
+        request.cookies.get("simulation") or "[]"
+    )
+    sim_nav, sim_metrics = simulate(
+        selected_data, simulation, initial_cash, leverage)
+       
+    sim_nav_ts = [
+        {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}
+        for d, v in sim_nav.items()
+    ]
+
+
     tickers = Market.get_all_tickers()
     metrics = {
         "total_return": f"{Metrics.get_ROI(nav):.7f}%",
@@ -131,8 +142,7 @@ def index():
         "total_value": f"${float(nav.iloc[-1]):.1f}",
         # "value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
     }
-    session["base_portfolio"] = selected_data
-    return render_template(
+    resp = make_response(render_template(
         "index.html",
         portfolios=portfolios,
         selected_key=selected_key,
@@ -143,8 +153,13 @@ def index():
         leverage_limit=f"{selected_portfolio.leverage_limit}",
         api_route=os.getenv("API_ROUTE"),
         shown=shown,
-        tickers=tickers
-    )
+        tickers=tickers,
+        sim_nav=sim_nav_ts,
+        sim_metrics=sim_metrics
+    ))
+    resp.set_cookie("base_portfolio", json.dumps(selected_data))
+    return resp
+
 
 
 @bp.route('/upload-portfolio', methods=['POST'])

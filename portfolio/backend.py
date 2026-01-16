@@ -29,7 +29,7 @@ def simulate_purchase():
     )
     simulation.append(trade)
 
-    base = session.get("base_portfolio")
+    base = json.loads(request.cookies.get("base_portfolio"))
     if base is None:
         return {"error": "No base portfolio"}, 400
 
