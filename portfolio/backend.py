@@ -5,7 +5,6 @@ import pandas as pd
 
 from portfolio.models.metrics import Metrics
 from portfolio.models.alpaca_wrapper import Alpaca
-from portfolio.utils.simulation import add_trade, clear_simulation, get_simulation
 from portfolio.utils.simulate import simulate
 from portfolio.utils.portfolio_builder import build_real_portfolio
 

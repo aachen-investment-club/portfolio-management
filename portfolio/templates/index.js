@@ -3,7 +3,7 @@ const mainChart = document.getElementById("main-chart");
 // Portfolio NAV (from Flask → index.html)
 const NAV = NAV_TS;
 const buyDate = document.getElementById("sim-date");
-const ticker = document.getElementById("sim-ticker");
+const ticker = document.getElementById("sim-ticker-select");
 const amount = document.getElementById("sim-cash");
 
 const data = NAV_TS; 

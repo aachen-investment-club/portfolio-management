@@ -43,6 +43,13 @@ class Market:
             # to .execute().first()
             result = session.scalar(stmt)
             return result is None
+        
+    @classmethod
+    def get_all_tickers(cls):
+        stmt = select(MarketDB.ticker).distinct()
+        with Session(engine) as session:
+            result = session.scalars(stmt).all()
+            return result
 
     @classmethod
     def load_from_csv(cls, path: str, batch_size: int = 5_000) -> int:

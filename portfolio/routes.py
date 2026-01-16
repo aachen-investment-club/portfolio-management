@@ -118,7 +118,7 @@ def index():
     # portf_positions_df = selecportfolio.get_portfolio_positions_df() 
     # portf_data = Market.get_historical_data(portf_positions_df["ticker"].to_list())
     # port_weights = Metrics.get_portfolio_weights(portf_positions_df, portf_data)
-
+    tickers = Market.get_all_tickers()
     metrics = {
         "total_return": f"{Metrics.get_ROI(nav):.7f}%",
         "cash": f"${selected_portfolio.cash:.1f}",
@@ -142,7 +142,8 @@ def index():
         initial_cash=f"{selected_portfolio.initial_cash}",
         leverage_limit=f"{selected_portfolio.leverage_limit}",
         api_route=os.getenv("API_ROUTE"),
-        shown=shown
+        shown=shown,
+        tickers=tickers
     )
 
 
