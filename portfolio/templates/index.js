@@ -3,8 +3,11 @@ const mainChart = document.getElementById("main-chart");
 // Portfolio NAV (from Flask → index.html)
 const NAV = NAV_TS;
 const buyDate = document.getElementById("sim-date");
-const ticker = document.getElementById("sim-ticker");
+const ticker = document.getElementById("sim-ticker-select");
 const amount = document.getElementById("sim-cash");
+
+const SIM_METRICS = SIM_METRICS_TS;
+const SIM_NAV = SIM_NAV_TS;
 
 const data = NAV_TS; 
 
@@ -129,14 +132,16 @@ async function simulate() {
     return;
   }
 
-  const data = await res.json();
-  drawSimulationLine(data.nav);
-  showSimulationMetrics(data.metrics);
+  window.location.reload();
 }
 
 
 async function undo() {
   await fetch("/api/simulate/reset", { method:"POST" });
-  clearSimulationLine();
-  clearSimulationMetrics();
+  window.location.reload();
+}
+
+if (SIM_METRICS && SIM_NAV) {
+  drawSimulationLine(SIM_NAV);
+  showSimulationMetrics(SIM_METRICS);
 }
