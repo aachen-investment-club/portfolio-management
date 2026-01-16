@@ -21,7 +21,9 @@ docs/_templates/
 data/
 .*.jpeg
 
-/notebooks
+# Flask sessions
+flask_session/
+notebooks/
 
 app.db
 market.db

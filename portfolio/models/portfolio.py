@@ -1,5 +1,4 @@
-from typing import List
-
+from typing import List, Optional
 from portfolio.models.market import Market
 
 from datetime import date as dte
@@ -18,11 +17,12 @@ TR_VOLUME = "volume"
 TR_TICKER = "ticker"
 TR_TYPE = "type"
 
+
 class Portfolio():
-    def __init__(self, cash:float, leverage_limit:float)-> None:
+    def __init__(self, cash: float, leverage_limit: float) -> None:
         self.cash: float = cash
         self.leverage_limit: float = leverage_limit
-        self.trades: pd.DataFrame = None
+        self.trades: Optional[pd.DataFrame] = None
         self.current_position = {}
         #: observation: we assume short selling in this implementation.
         self.initial_cash = cash
@@ -43,7 +43,9 @@ class Portfolio():
         for value in self.current_position.values():
             total += value
         position_weights = [{"symbol": symbol, "weight": position / total}
-                            for symbol, position in self.current_position.items() if position != 0]
+                            for symbol, position
+                            in self.current_position.items()
+                            if position != 0]
         return position_weights
 
     def _signed_trades(self) -> pd.DataFrame:
@@ -334,15 +336,19 @@ class Portfolio():
         }
 
     def check_leverage(self, new_cash, new_positions):
-        gross = sum(abs(qty) * self._latest_price(p) for p, qty in new_positions.items())
-        net_value = new_cash + sum(qty * self._latest_price(p) for p, qty in new_positions.items())
+        gross = sum(abs(qty) * self._latest_price(p)
+                    for p, qty in new_positions.items())
+        net_value = new_cash + sum(qty * self._latest_price(p)
+                                   for p, qty in new_positions.items())
         leverage = gross / max(net_value, 1e-8)
         return leverage <= self.leverage_limit
 
     def get_current_leverage(self):
-        gross = sum(abs(qty) * self._latest_price(p) for p, qty in self.current_position.items())
-        net_value = self.cash + sum(qty * self._latest_price(p) \
-            for p, qty in self.current_position.items())
+        gross = sum(abs(qty) * self._latest_price(p)
+                    for p, qty in self.current_position.items())
+        net_value = self.cash + sum(qty * self._latest_price(p)
+                                    for p, qty
+                                    in self.current_position.items())
         leverage = gross / max(net_value, 1e-8)
         return leverage
 
