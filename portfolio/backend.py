@@ -29,21 +29,7 @@ def simulate_purchase():
     )
     simulation.append(trade)
 
-    base = json.loads(request.cookies.get("base_portfolio"))
-    if base is None:
-        return {"error": "No base portfolio"}, 400
-
-    initial_cash = float(request.args.get("cash", 1000000))
-    leverage = float(request.args.get("leverage", 100000))
-
-    nav, metrics = simulate(base, simulation, initial_cash, leverage)
-
-    nav_ts = [
-        {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}
-        for d, v in nav.items()
-    ]
-
-    resp = make_response({"nav": nav_ts, "metrics": metrics})
+    resp = make_response("Success")
     resp.set_cookie("simulation", json.dumps(simulation))
     return resp
 

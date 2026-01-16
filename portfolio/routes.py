@@ -154,6 +154,7 @@ def index():
         selected_key=selected_key,
         metrics=metrics,
         positions=positions,
+        simulation=simulation,
         nav_ts=all_charts,
         initial_cash=f"{selected_portfolio.initial_cash}",
         leverage_limit=f"{selected_portfolio.leverage_limit}",

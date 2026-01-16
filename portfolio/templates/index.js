@@ -132,16 +132,13 @@ async function simulate() {
     return;
   }
 
-  const data = await res.json();
-  drawSimulationLine(data.nav);
-  showSimulationMetrics(data.metrics);
+  window.location.reload();
 }
 
 
 async function undo() {
   await fetch("/api/simulate/reset", { method:"POST" });
-  clearSimulationLine();
-  clearSimulationMetrics();
+  window.location.reload();
 }
 
 if (SIM_METRICS && SIM_NAV) {
