@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, sesssion
 import os
 import datetime
 import pandas as pd
@@ -13,9 +13,6 @@ import io
 import csv
 import json
 from portfolio.extensions import cache
-from flask import render_template
-from flask import request, jsonify
-from flask import session
 
 bp = Blueprint("bp", __name__)
 
