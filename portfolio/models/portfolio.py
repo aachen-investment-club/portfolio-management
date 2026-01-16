@@ -1,13 +1,14 @@
-from typing import List
-
-from models.market import Market
+from typing import List, Optional
+from portfolio.models.market import Market
 
 from datetime import date as dte
+from datetime import datetime
 
 import pandas as pd
 import numpy as np
 import json
 import boto3
+import yfinance as yf
 
 TR_TYPE = "type"
 TR_CURRENCY = "currency"
@@ -16,11 +17,12 @@ TR_VOLUME = "volume"
 TR_TICKER = "ticker"
 TR_TYPE = "type"
 
+
 class Portfolio():
-    def __init__(self, cash:float, leverage_limit:float)-> None:
+    def __init__(self, cash: float, leverage_limit: float) -> None:
         self.cash: float = cash
         self.leverage_limit: float = leverage_limit
-        self.trades: pd.DataFrame = None
+        self.trades: Optional[pd.DataFrame] = None
         self.current_position = {}
         #: observation: we assume short selling in this implementation.
         self.initial_cash = cash
@@ -41,7 +43,9 @@ class Portfolio():
         for value in self.current_position.values():
             total += value
         position_weights = [{"symbol": symbol, "weight": position / total}
-                            for symbol, position in self.current_position.items() if position != 0]
+                            for symbol, position
+                            in self.current_position.items()
+                            if position != 0]
         return position_weights
 
     def _signed_trades(self) -> pd.DataFrame:
@@ -184,6 +188,73 @@ class Portfolio():
 
         self.cash = float(self.get_cash_ts(prices.index).loc[last_date])
 
+
+    @staticmethod
+    def import_from_csv(csv_rows): 
+        """
+        converts the csv into the intermediate dict format used during development.
+        """
+
+        def isin_to_security(isin, currency, data):
+            if isin in data:# this is just a memoization approach.
+                return data[isin]
+
+            security = {"name": None, "ticker": None, "currency": currency}
+
+            try:
+                search = yf.Search(isin)
+                if getattr(search, "quotes", None):
+                    symbol = search.quotes[0].get("symbol")
+                    security["ticker"] = symbol
+
+                    if symbol:
+                        t = yf.Ticker(symbol)
+                        info = getattr(t, "info", {}) or {}
+                        security["name"] = info.get("shortName") or info.get("longName")
+            except Exception:
+                pass
+
+            data[isin] = security
+            return security
+
+        
+
+        transactions = []
+
+        portfolio = list(csv_rows[0].values())[0]
+        currency_row = next(iter(csv_rows[1].values()))
+        currency = "USD" if "USD" in currency_row else "EUR"
+
+        security_cache = {}  
+
+        for row in csv_rows[3:]:
+            date, information = row.values()
+            dt = datetime.strptime(date, "%d.%m.%Y %H:%M:%S")
+            date_str = dt.strftime("%Y-%m-%d")
+            time_str = dt.strftime("%H:%M")
+            tx = {}
+            tx["type"] = "PURCHASE" if "Kauf" in information[0] else "SALE"
+            security_isin = information[1]
+            shares = information[2]
+
+            tx["shares"] = float(shares.replace(",",""))
+            tx["date"] = date_str
+            tx["time"] = time_str
+            tx["portfolio"] = portfolio
+            tx["account"] = currency
+            tx["currency"] = currency
+            tx["security"] = isin_to_security(security_isin, currency, security_cache)
+
+            transactions.append(tx)
+
+        final = {"version": 1, "transactions": transactions}
+
+        return final
+                
+
+
+
+
     def import_from_json(self, path):
         """
         imports a FULL trades log and:
@@ -245,15 +316,19 @@ class Portfolio():
         }
 
     def check_leverage(self, new_cash, new_positions):
-        gross = sum(abs(qty) * self._latest_price(p) for p, qty in new_positions.items())
-        net_value = new_cash + sum(qty * self._latest_price(p) for p, qty in new_positions.items())
+        gross = sum(abs(qty) * self._latest_price(p)
+                    for p, qty in new_positions.items())
+        net_value = new_cash + sum(qty * self._latest_price(p)
+                                   for p, qty in new_positions.items())
         leverage = gross / max(net_value, 1e-8)
         return leverage <= self.leverage_limit
 
     def get_current_leverage(self):
-        gross = sum(abs(qty) * self._latest_price(p) for p, qty in self.current_position.items())
-        net_value = self.cash + sum(qty * self._latest_price(p) \
-            for p, qty in self.current_position.items())
+        gross = sum(abs(qty) * self._latest_price(p)
+                    for p, qty in self.current_position.items())
+        net_value = self.cash + sum(qty * self._latest_price(p)
+                                    for p, qty
+                                    in self.current_position.items())
         leverage = gross / max(net_value, 1e-8)
         return leverage
 
@@ -284,20 +359,19 @@ class Portfolio():
 
 
     @staticmethod
-    def upload_portfolio(file):
+    def upload_portfolio(data, filename):
 
-        if file and file.filename.endswith('.json'):
-            filename = file.filename
+        s3_client = boto3.client("s3")
+        bucket = "portfolio-management-developer"
 
-            s3_client = boto3.client("s3")
-            bucket = "portfolio-management-developer"
-            # Upload directly to S3 without saving locally first
-            s3_client.upload_fileobj(
-                file,
-                bucket,
-                f"portfolios/{filename}",
-                ExtraArgs={"ContentType": "application/json"}
-            )
+        s3_client.put_object(
+            Bucket=bucket,
+            Key=f"portfolios/{filename}",
+            Body=json.dumps(data, ensure_ascii=False).encode("utf-8"),
+            ContentType="application/json",
+        )
+
+            
 
     @staticmethod
     def remove_portfolio(file):

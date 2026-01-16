@@ -2,6 +2,7 @@ python-dotenv==1.2.1
 Flask==3.1.2
 flask-cors==6.0.1
 Flask-Caching==2.3.1
+Flask-Session==0.8.0
 pytest==9.0.2
 alpaca_py==0.43.2
 awswrangler==3.14.0
@@ -12,3 +13,4 @@ sphinx==8.2.3
 sphinx-autoapi==3.6.1
 furo==2025.9.25
 scipy==1.16.3
+yfinance==1.0
