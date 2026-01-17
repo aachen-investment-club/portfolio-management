@@ -63,7 +63,6 @@ document.getElementById('portfolioUpload').addEventListener('change', function(e
     });
 });
 
-<<<<<<< HEAD
 
 
 document.getElementById('removePortfolioButton').addEventListener('click', function () {
@@ -92,7 +91,6 @@ document.getElementById('removePortfolioButton').addEventListener('click', funct
             statusDiv.innerHTML = '<span class="text-danger">Removal failed.</span>';
         });
 });
-=======
 function drawSimulationLine(nav) {
   const trace = {
     x: nav.map(x => x.date),
@@ -175,4 +173,3 @@ if (SIM_METRICS && SIM_NAV) {
   drawSimulationLine(SIM_NAV);
   showSimulationMetrics(SIM_METRICS);
 }
->>>>>>> develop

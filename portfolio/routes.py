@@ -1,35 +1,32 @@
 from functools import wraps
 
 import os
-
+import datetime
 import pandas as pd
 
-from flask import request, session, redirect, url_for, Blueprint, render_template, request
-bp = Blueprint("bp", __name__)
+from flask import (request, session, redirect, 
+                   url_for, Blueprint, render_template, 
+                   request, jsonify, make_response)
 
-import datetime
 import urllib
 
-
+from portfolio.models.portfolio import Portfolio
+from portfolio.models.metrics import Metrics
+from portfolio.models.market import Market
+#from portfolio.utils.aws_config import engine
+import io
+import csv
+import json
+from portfolio.extensions import cache, oauth
+from portfolio.utils.simulate import simulate
 
 COGNITO_DOMAIN_PREFIX = os.getenv("COGNITO_DOMAIN_PREFIX")  
 COGNITO_REGION = os.getenv("AWS_REGION")   
 COGNITO_CLIENT_ID = os.getenv("COGNITO_CLIENT_ID")
 
 
-from portfolio.models.portfolio import Portfolio
-from portfolio.models.metrics import Metrics
-from portfolio.models.market import Market
-#from portfolio.utils.aws_config import engine
-from portfolio.extensions import cache  
-import io
-import csv
-import json
-from portfolio.extensions import cache
-from portfolio.utils.simulate import simulate
-from portfolio.__main__ import cache, oauth
 
-
+bp = Blueprint("bp", __name__)
 
 
 def check_auth(f):
@@ -47,7 +44,7 @@ def check_auth(f):
 
 @bp.route('/login')
 def login():
-    redirect_uri = url_for('authorize', _external=True)
+    redirect_uri = url_for('bp.authorize', _external=True)
 
     return oauth.oidc.authorize_redirect(redirect_uri)
 
@@ -57,14 +54,14 @@ def authorize():
     token = oauth.oidc.authorize_access_token()
     user = token['userinfo']
     session['user'] = user
-    return redirect(url_for('index'))
+    return redirect(url_for('bp.index'))
 
 
 @bp.route('/logout')
 def logout():
     session.pop('user', None)
 
-    logout_uri = url_for("index", _external=True)
+    logout_uri = url_for("bp.index", _external=True)
     params = {
         "client_id": COGNITO_CLIENT_ID,
         "logout_uri": logout_uri,  
