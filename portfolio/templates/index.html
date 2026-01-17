@@ -32,7 +32,10 @@
             <div class="row min-vh-100 g-3">
                 <!-- Sidebar -->
                 <aside class="col-12 col-lg-2 d-flex flex-column gap-3">
-                    <div class="bg-dark-subtle rounded p-3 h-50">
+                    <div class="bg-dark-subtle rounded p-3">
+
+
+
                         <h5 class="mb-3">Portfolios</h5>
 
                         <form method="get" class="mb-3">
@@ -84,15 +87,16 @@
                 <section class="col-12 col-lg-10">
                     <div class="row g-3">
                         <!-- Main Chart -->
-                        <div class="col-12 col-lg-8">
-                            <h4 class="mb-3">
-                               Portfolio: {{ selected_key.split('/')[-1] if selected_key else "No Portfolio Selected" }}
-                            </h4>
-                            <div class="bg-dark-subtle rounded p-3 h-100">
-                                <div id="main-chart" class="container-fluid p-0"></div>
+ 
+                            <div class="col-12 col-lg-8">
+                                <h4 class="mb-3">
+                                Portfolio: {{ selected_key.split('/')[-1] if selected_key else "No Portfolio Selected" }}
+                                </h4>
+                                <div class="bg-dark-subtle rounded p-3 h-100">
+                                    <div id="main-chart" class="container-fluid p-0"></div>
+                                </div>
                             </div>
-                        </div>
-
+ 
                         <!-- Positions -->
                         <div class="col-12 col-lg-4">
                             {{
