@@ -141,7 +141,13 @@ def index():
         preview_data = {
             "name": preview,
             "x": market_data["date"].apply(lambda x: x.strftime("%Y-%m-%d")).tolist(),
-            "y": market_data["price_close"].tolist()
+            "y": market_data["price_close"].tolist(), 
+            "yaxis": "y2", 
+            "line": {
+                "dash": "solid",
+                "width": 2,
+                "color": "#FF7F50"
+            }
         }
 
 

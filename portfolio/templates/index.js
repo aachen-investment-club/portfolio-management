@@ -33,6 +33,16 @@ const layout = {
         gridcolor: "#666",
         zeroline: false
     },
+    yaxis2: {
+        title: {
+            text: "Asset Preview",
+            font: { size: 14, color: "#adb5bd" }
+        },
+        overlaying: "y",
+        side: "right",
+        gridcolor: "#444",
+        zeroline: false, 
+    },
     hovermode: "x unified"
 };
 
