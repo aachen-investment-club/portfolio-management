@@ -1,25 +1,77 @@
-from flask import Blueprint, render_template, request, jsonify, make_response
+from functools import wraps
+
 import os
 import datetime
 import pandas as pd
 
+from flask import (request, session, redirect, 
+                   url_for, Blueprint, render_template, 
+                   request, jsonify, make_response)
+
+import urllib
+
 from portfolio.models.portfolio import Portfolio
 from portfolio.models.metrics import Metrics
 from portfolio.models.market import Market
-from portfolio.schemas.market import Base
 #from portfolio.utils.aws_config import engine
-from portfolio.extensions import cache  
 import io
 import csv
 import json
-from portfolio.extensions import cache
+from portfolio.extensions import cache, oauth
 from portfolio.utils.simulate import simulate
+
+COGNITO_DOMAIN_PREFIX = os.getenv("COGNITO_DOMAIN_PREFIX")  
+COGNITO_REGION = os.getenv("AWS_REGION")   
+COGNITO_CLIENT_ID = os.getenv("COGNITO_CLIENT_ID")
+
+
 
 bp = Blueprint("bp", __name__)
 
 
-#Base.metadata.create_all(engine)
+def check_auth(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user" not in session:
 
+            print("unauthenticated")
+            return redirect(url_for('login', _external=True))
+        print("authenticated")
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+
+@bp.route('/login')
+def login():
+    redirect_uri = url_for('bp.authorize', _external=True)
+
+    return oauth.oidc.authorize_redirect(redirect_uri)
+
+
+@bp.route('/authorize')
+def authorize():
+    token = oauth.oidc.authorize_access_token()
+    user = token['userinfo']
+    session['user'] = user
+    return redirect(url_for('bp.index'))
+
+
+@bp.route('/logout')
+def logout():
+    session.pop('user', None)
+
+    logout_uri = url_for("bp.index", _external=True)
+    params = {
+        "client_id": COGNITO_CLIENT_ID,
+        "logout_uri": logout_uri,  
+    }
+    qs = urllib.parse.urlencode(params)
+
+    cognito_logout = f"https://{COGNITO_DOMAIN_PREFIX}.auth.{COGNITO_REGION}.amazoncognito.com/logout?{qs}"
+
+
+    return redirect(cognito_logout) 
 
 @bp.route("/health")
 def health():
@@ -165,8 +217,20 @@ def index():
         "total_value": f"${float(nav.iloc[-1]):.1f}",
         # "value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
     }
+
+
+    if 'user' in session:
+        user = session['user']
+        print(f"logged in as {user["email"]}")
+    else:
+        user = None
+        print(f"not logged in yet")
+
+
+
     resp = make_response(render_template(
         "index.html",
+        user = user, 
         portfolios=portfolios,
         selected_key=selected_key,
         metrics=metrics,
@@ -187,7 +251,10 @@ def index():
 
 
 
-@bp.route('/upload-portfolio', methods=['POST'])
+
+
+@bp.route('/upload_portfolio', methods=['POST'])
+@check_auth
 def upload_portfolio():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
@@ -202,6 +269,25 @@ def upload_portfolio():
             Portfolio.upload_portfolio(data, file.filename.replace("csv", "json"))
 
     return jsonify({"status": "success"})
+
+
+
+@bp.route('/remove_portfolio', methods=['POST'])
+@check_auth
+def remove_portfolio():
+
+    selected_portfolio = request.form.get("portfolio")
+    if not selected_portfolio: 
+        return jsonify({"error": "No selected portfolio"}), 400
+
+    Portfolio.remove_portfolio(selected_portfolio)
+    return jsonify({"status": "success"})
+
+
+
+
+
+
 
 
 @bp.route("/script/index.js")

@@ -5,6 +5,16 @@ const NAV = NAV_TS;
 const buyDate = document.getElementById("sim-date");
 const ticker = document.getElementById("sim-ticker-select");
 const amount = document.getElementById("sim-cash");
+const sim_ticker_select = document.getElementById("sim-ticker-select");
+const sim_ticker = document.getElementById("sim-ticker");
+
+
+const preview_select = document.getElementById("preview-select");
+const preview_filter = document.getElementById("preview-filter");
+
+
+
+
 
 const SIM_METRICS = SIM_METRICS_TS;
 const SIM_NAV = SIM_NAV_TS;
@@ -50,7 +60,12 @@ Plotly.newPlot(mainChart, data, layout, { responsive: true });
 let simulatedTraceIndex = null;
 let simulationActive = false;
 
-document.getElementById('portfolioUpload').addEventListener('change', function(e) {
+
+
+const portfolioUpload = document.getElementById('portfolioUpload');
+
+if (portfolioUpload){
+portfolioUpload.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -60,7 +75,7 @@ document.getElementById('portfolioUpload').addEventListener('change', function(e
     const formData = new FormData();
     formData.append('file', file);
 
-    axios.post('/upload-portfolio', formData, {
+    axios.post('/upload_portfolio', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
     })
     .then(response => {
@@ -73,6 +88,39 @@ document.getElementById('portfolioUpload').addEventListener('change', function(e
     });
 });
 
+}
+
+const removePortfolioButton = document.getElementById('removePortfolioButton')
+
+if (removePortfolioButton){
+removePortfolioButton.addEventListener('click', function () {
+    const select = document.getElementById('removePortfolioSelection');
+    const key = select.value;
+
+    if (!key) return;
+
+    if (!confirm('Are you sure you want to remove this portfolio?')) {
+        return;
+    }
+
+    const statusDiv = document.getElementById('removeStatus');
+    statusDiv.innerHTML = '<span class="text-info">Removing...</span>';
+
+    const formData = new FormData();
+    formData.append('portfolio', key);
+
+    axios.post('/remove_portfolio', formData)
+        .then(response => {
+            statusDiv.innerHTML = '<span class="text-success">Removed!</span>';
+            setTimeout(() => window.location.reload(), 1500);
+        })
+        .catch(error => {
+            console.error(error);
+            statusDiv.innerHTML = '<span class="text-danger">Removal failed.</span>';
+        });
+});
+
+}
 function drawSimulationLine(nav) {
   const trace = {
     x: nav.map(x => x.date),
@@ -157,10 +205,6 @@ if (SIM_METRICS && SIM_NAV) {
 }
 
 
-const sim_ticker_select = document.getElementById("sim-ticker-select");
-const sim_ticker = document.getElementById("sim-ticker");
-const preview_select = document.getElementById("preview-select");
-const preview_filter = document.getElementById("preview-filter");
 
 function tickerOnChangeHandler(e, selector) {
     const val = e.target.value.toUpperCase();
@@ -175,6 +219,8 @@ function tickerOnChangeHandler(e, selector) {
 }
 
 async function showPreview() {
+  console.log("Show clicked", preview_select.value);
+
   const ticker = preview_select.value;
   await cookieStore.set("preview", ticker);
   window.location.reload();

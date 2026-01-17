@@ -7,10 +7,10 @@ Base.metadata.create_all(engine)
 
 from flask import Flask
 from flask_cors import CORS
-
+import os 
 from dotenv import load_dotenv
 
-from portfolio.extensions import cache
+from portfolio.extensions import cache, oauth
 from portfolio.routes import bp
 from portfolio.backend import bp_api
 
@@ -19,13 +19,26 @@ load_dotenv()
 app = Flask(__name__)
 
 
-#cache = Cache(app)
 CORS(app)
+
+oauth.init_app(app)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+oauth.register(
+  name='oidc',
+  authority='https://cognito-idp.eu-central-1.amazonaws.com/eu-central-1_unKiHP6hh',
+  client_id=os.getenv("COGNITO_CLIENT_ID"),
+  client_secret=os.getenv("AWS_COGNI_CLIENT_SECRET"),
+  server_metadata_url='https://cognito-idp.eu-central-1.amazonaws.com/eu-central-1_unKiHP6hh/.well-known/openid-configuration',
+  client_kwargs={'scope': 'openid email'}
+)
+
+
 
 cache.init_app(app, config={
     "CACHE_TYPE": "SimpleCache",
     "CACHE_DEFAULT_TIMEOUT": 300,
 })
+
 app.register_blueprint(bp)
 app.register_blueprint(bp_api)
 
