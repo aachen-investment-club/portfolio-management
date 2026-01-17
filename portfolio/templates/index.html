@@ -152,7 +152,29 @@
 
                     <!-- Metrics -->
 
-                    <h2 class="mt-5">Portfolio Metrics</h2>
+                    <h2 class="mt-5">Preview</h2>
+                    
+                    <div class="row g-3 mb-3 p-2 flex flex-row gap-2">
+                        <input id="preview-filter" style="width: 10%;"
+                            class="form-control form-control-sm" placeholder="Filter">
+                        <select id="preview-select" style="width: 10%;"
+                            class="form-select form-control-sm" placeholder="NVDA, AAPL, TSLA">
+                            {% for ticker in tickers %}
+                                <option value="{{ticker}}">{{ticker}}</option>
+                            {% endfor%}
+                        </select>
+                        <button style="width: 10%;"
+                            class="btn btn-sm btn-primary"
+                            onclick="showPreview()"
+                            >Show</button>
+                        <button style="width: 10%;"
+                            class="btn btn-sm btn-secondary"
+                            onclick="clearPreview()"
+                            >Clear</button>
+                        
+                    </div>
+                    
+                    <h2 class="mt-2">Portfolio Metrics</h2>
 
                     <div class="row g-3 mb-3">
                         {{ MetricCard("Total Return", metrics.total_return, id="kpi-total-return") }}
@@ -261,6 +283,9 @@
             const NAV_TS = {{ nav_ts | tojson }};
             const SIM_METRICS_TS = {{ sim_metrics | tojson }};
             const SIM_NAV_TS = {{ sim_nav | tojson }};
+            const PREVIEW_DATA = {{ preview_data | tojson }};
+
+            const tickers = {{ tickers | safe }};
         </script>
 
         <script src="/script/index.js"></script>

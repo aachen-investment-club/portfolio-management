@@ -5,6 +5,16 @@ const NAV = NAV_TS;
 const buyDate = document.getElementById("sim-date");
 const ticker = document.getElementById("sim-ticker-select");
 const amount = document.getElementById("sim-cash");
+const sim_ticker_select = document.getElementById("sim-ticker-select");
+const sim_ticker = document.getElementById("sim-ticker");
+
+
+const preview_select = document.getElementById("preview-select");
+const preview_filter = document.getElementById("preview-filter");
+
+
+
+
 
 const SIM_METRICS = SIM_METRICS_TS;
 const SIM_NAV = SIM_NAV_TS;
@@ -33,6 +43,16 @@ const layout = {
         gridcolor: "#666",
         zeroline: false
     },
+    yaxis2: {
+        title: {
+            text: "Asset Preview",
+            font: { size: 14, color: "#adb5bd" }
+        },
+        overlaying: "y",
+        side: "right",
+        gridcolor: "#444",
+        zeroline: false, 
+    },
     hovermode: "x unified"
 };
 
@@ -40,7 +60,12 @@ Plotly.newPlot(mainChart, data, layout, { responsive: true });
 let simulatedTraceIndex = null;
 let simulationActive = false;
 
-document.getElementById('portfolioUpload').addEventListener('change', function(e) {
+
+
+const portfolioUpload = document.getElementById('portfolioUpload');
+
+if (portfolioUpload){
+portfolioUpload.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -63,9 +88,12 @@ document.getElementById('portfolioUpload').addEventListener('change', function(e
     });
 });
 
+}
 
+const removePortfolioButton = document.getElementById('removePortfolioButton')
 
-document.getElementById('removePortfolioButton').addEventListener('click', function () {
+if (removePortfolioButton){
+removePortfolioButton.addEventListener('click', function () {
     const select = document.getElementById('removePortfolioSelection');
     const key = select.value;
 
@@ -91,6 +119,8 @@ document.getElementById('removePortfolioButton').addEventListener('click', funct
             statusDiv.innerHTML = '<span class="text-danger">Removal failed.</span>';
         });
 });
+
+}
 function drawSimulationLine(nav) {
   const trace = {
     x: nav.map(x => x.date),
@@ -172,4 +202,37 @@ async function undo() {
 if (SIM_METRICS && SIM_NAV) {
   drawSimulationLine(SIM_NAV);
   showSimulationMetrics(SIM_METRICS);
+}
+
+
+
+function tickerOnChangeHandler(e, selector) {
+    const val = e.target.value.toUpperCase();
+    const filteredTickers = val.length > 0 ? tickers.filter(x => x.includes(val)) : tickers;
+    selector.innerHTML = '';
+    for (const ticker of filteredTickers) {
+        const option = document.createElement("option")
+        option.value = ticker;
+        option.innerHTML = ticker;
+        selector.appendChild(option);
+    }
+}
+
+async function showPreview() {
+  console.log("Show clicked", preview_select.value);
+
+  const ticker = preview_select.value;
+  await cookieStore.set("preview", ticker);
+  window.location.reload();
+}
+async function clearPreview() {
+  await cookieStore.delete("preview");
+  window.location.reload();
+}
+
+sim_ticker.addEventListener("input", (e) => tickerOnChangeHandler(e, sim_ticker_select));
+preview_filter.addEventListener("input", (e) => tickerOnChangeHandler(e, preview_select));
+
+if (PREVIEW_DATA) {
+  Plotly.addTraces(mainChart, PREVIEW_DATA);
 }

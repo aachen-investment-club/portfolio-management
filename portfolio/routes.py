@@ -186,6 +186,23 @@ def index():
             for d, v in sim_nav.items()
         ]
 
+    preview = request.cookies.get("preview")
+    preview_data = None
+    if preview:
+        market_data = Market.get_historical_data([preview])
+        preview_data = {
+            "name": preview,
+            "x": market_data["date"].apply(lambda x: x.strftime("%Y-%m-%d")).tolist(),
+            "y": market_data["price_close"].tolist(), 
+            "yaxis": "y2", 
+            "line": {
+                "dash": "solid",
+                "width": 2,
+                "color": "#FF7F50"
+            }
+        }
+
+
 
     tickers = Market.get_all_tickers()
     metrics = {
@@ -226,7 +243,8 @@ def index():
         shown=shown,
         tickers=tickers,
         sim_nav=sim_nav_ts,
-        sim_metrics=sim_metrics
+        sim_metrics=sim_metrics,
+        preview_data=preview_data
     ))
     resp.set_cookie("base_portfolio", json.dumps(selected_data))
     return resp
