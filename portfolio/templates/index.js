@@ -224,16 +224,32 @@ function queryFilterHandler(e, selector) {
 
 
 
+function setCookie(name, value, days = 7) {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+}
+
+function getCookie(name) {
+  return document.cookie
+    .split("; ")
+    .find(row => row.startsWith(name + "="))
+    ?.split("=")[1];
+}
+
+function deleteCookie(name) {
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+}
+
 
 async function showPreview() {
-  console.log("Show clicked", preview_select.value);
 
   const ticker = preview_select.value;
-  await cookieStore.set("preview", ticker);
+  //await cookieStore.set("preview", ticker);
+  await setCookie("preview", ticker);
   window.location.reload();
 }
 async function clearPreview() {
-  await cookieStore.delete("preview");
+  await deleteCookie("preview");
   window.location.reload();
 }
 
