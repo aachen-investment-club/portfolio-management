@@ -226,7 +226,8 @@ def index():
         user = None
         print(f"not logged in yet")
 
-
+    ttn, ntt = Market.get_ticker_short_name_map()
+    ttn = {key:val for key, val in ttn.items() if val is not None}
 
     resp = make_response(render_template(
         "index.html",
@@ -244,7 +245,9 @@ def index():
         tickers=tickers,
         sim_nav=sim_nav_ts,
         sim_metrics=sim_metrics,
-        preview_data=preview_data
+        preview_data=preview_data, 
+        ticker_to_name = ttn, 
+        name_to_timer = ntt
     ))
     resp.set_cookie("base_portfolio", json.dumps(selected_data))
     return resp
