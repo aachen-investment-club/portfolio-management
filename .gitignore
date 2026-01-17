@@ -21,9 +21,13 @@ docs/_templates/
 data/
 .*.jpeg
 
+# Flask sessions
+flask_session/
+notebooks/
 
+.*.db
 app.db
 market.db
-
+market_copy.db
 
 notes.md

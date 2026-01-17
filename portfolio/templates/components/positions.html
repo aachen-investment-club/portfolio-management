@@ -1,15 +1,26 @@
-{% macro PositionsContainer(positions) %}
-<div class="bg-dark-subtle rounded p-3 h-100">
+{% macro PositionsContainer(positions, simulation) %}
+<div class="bg-dark-subtle rounded p-3">
     <h4>Positions</h4>
 
     <div id="positions-list">
         {% for position in positions %}
             <div class="d-flex justify-content-between border-bottom py-2">
-                <span>{{ position.symbol }}</span>
+                <span>{{ position.shortname}}</span>
                 <span>{{ (position.weight * 100) | round(1) }}%</span>
             </div>
         {% endfor %}
     </div>
+    
+    {% if simulation %}
+        <h4>Simulation </h4>
+        {% for sim in simulation %}
+            <div class="d-flex justify-content-between border-bottom py-2">
+                <span>{{ sim.ticker }}</span>
+                <span>{{ sim.date }}</span>
+                <span>${{ sim.cash }}</span>
+            </div>
+        {% endfor %}
+    {% endif %}
 </div>
 
 {% endmacro %}

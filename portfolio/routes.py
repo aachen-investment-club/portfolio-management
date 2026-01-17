@@ -1,20 +1,77 @@
+from functools import wraps
 
-from flask import Blueprint, render_template, request, jsonify
-import os, datetime
+import os
+import datetime
 import pandas as pd
+
+from flask import (request, session, redirect, 
+                   url_for, Blueprint, render_template, 
+                   request, jsonify, make_response)
+
+import urllib
 
 from portfolio.models.portfolio import Portfolio
 from portfolio.models.metrics import Metrics
 from portfolio.models.market import Market
-from portfolio.schemas.market import Base
-from portfolio.utils.aws_config import engine
-from portfolio.extensions import cache  
+#from portfolio.utils.aws_config import engine
+import io
+import csv
+import json
+from portfolio.extensions import cache, oauth
+from portfolio.utils.simulate import simulate
+
+COGNITO_DOMAIN_PREFIX = os.getenv("COGNITO_DOMAIN_PREFIX")  
+COGNITO_REGION = os.getenv("AWS_REGION")   
+COGNITO_CLIENT_ID = os.getenv("COGNITO_CLIENT_ID")
+
+
 
 bp = Blueprint("bp", __name__)
 
 
-Base.metadata.create_all(engine)
+def check_auth(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user" not in session:
 
+            print("unauthenticated")
+            return redirect(url_for('login', _external=True))
+        print("authenticated")
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+
+@bp.route('/login')
+def login():
+    redirect_uri = url_for('bp.authorize', _external=True)
+
+    return oauth.oidc.authorize_redirect(redirect_uri)
+
+
+@bp.route('/authorize')
+def authorize():
+    token = oauth.oidc.authorize_access_token()
+    user = token['userinfo']
+    session['user'] = user
+    return redirect(url_for('bp.index'))
+
+
+@bp.route('/logout')
+def logout():
+    session.pop('user', None)
+
+    logout_uri = url_for("bp.index", _external=True)
+    params = {
+        "client_id": COGNITO_CLIENT_ID,
+        "logout_uri": logout_uri,  
+    }
+    qs = urllib.parse.urlencode(params)
+
+    cognito_logout = f"https://{COGNITO_DOMAIN_PREFIX}.auth.{COGNITO_REGION}.amazoncognito.com/logout?{qs}"
+
+
+    return redirect(cognito_logout) 
 
 @bp.route("/health")
 def health():
@@ -23,9 +80,7 @@ def health():
 
 @bp.route("/update_market")
 def update_market():
-
     Market.update_market()
-
     return {"status": "success"}
 
 
@@ -48,79 +103,111 @@ def get_cached_bonds_data():
 
 @bp.route("/")
 def index():
-
     initial_cash = request.args.get("cash", default=1000000, type=float)
     leverage_limit = request.args.get("leverage", default=100000, type=float)
+
     default_start = datetime.datetime(2000, 1, 3).date().strftime('%Y-%m-%d')
-
-    start_date = request.args.get("start_date", default=default_start) or default_start
-    #: this is important for edge cases
-    start_date = pd.to_datetime(datetime.datetime.strptime(start_date, '%Y-%m-%d').date())
-
+    start_date = request.args.get("start_date", default=default_start)
+    start_date = pd.to_datetime(
+            datetime.datetime.strptime(start_date, '%Y-%m-%d').date())
 
     default_end = Market.get_latest_date_in_db().strftime('%Y-%m-%d')
-
-
-    end_date = request.args.get("end_date", default=default_end) or default_end 
-    # this is important for edge cases
-
-    end_date = pd.to_datetime(datetime.datetime.strptime(end_date, '%Y-%m-%d').date())
-
+    end_date = request.args.get("end_date", default=default_end) or default_end
+    end_date = pd.to_datetime(
+            datetime.datetime.strptime(end_date, '%Y-%m-%d').date())
 
     portfolios = Portfolio.list_portfolios()
-
     selected_key = request.args.get("portfolio")
+    shown = request.args.getlist("shown")
 
-
-    if not portfolios : 
+    if not portfolios:
         selected_key = None
         selected_data = None
-
-    else: 
-        if selected_key not in portfolios: 
-            selected_key= next(iter(portfolios))
+    else:
+        if selected_key not in portfolios:
+            selected_key = next(iter(portfolios))
         selected_data = portfolios[selected_key]
-
-    portfolio, nav = get_cached_nav_data(selected_data, initial_cash, leverage_limit)
     bench_df = get_cached_bonds_data()
 
-
-
-
-    positions = portfolio.get_position_weights()
-    nav = nav[nav.index>=start_date]
-    nav = nav[nav.index<= end_date]
-
-    bench_df = bench_df[bench_df.index>=start_date]
-    bench_df = bench_df[bench_df.index<=end_date]
-
-
-    #: has to be converted to a list of dicts for json 
-    nav_ts = [
-        {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}
-        for d, v in nav.items()
+    selected_portfolio = None
+    nav = None
+    all_charts = []
+    shown_portfolios = [
+        (k, v)
+        for k, v in portfolios.items()
+        if k == selected_key or k in shown
     ]
+    for key, portfolio in shown_portfolios:
+        p, data =  get_cached_nav_data(
+            portfolio, initial_cash, leverage_limit
+        )
+        data = data[data.index >= start_date]
+        data = data[data.index <= end_date]
 
-    bench_series = (
-        bench_df
-        ["price close"]
-        .sort_index())
+        if key == selected_key:
+            selected_portfolio = p
+            nav = data
+        
+        json_data = {
+            "x": list(map(lambda x: x.strftime("%Y-%m-%d"), data.index)),
+            "y": list(data),
+            "name": key.split("/")[-1]
+        }
+        all_charts.append(json_data)
 
 
+    positions = selected_portfolio.get_position_weights()
+    nav = nav[nav.index >= start_date]
+    nav = nav[nav.index <= end_date]
 
+    bench_df = bench_df[bench_df.index >= start_date]
+    bench_df = bench_df[bench_df.index <= end_date]
+
+    bench_series = (bench_df["price close"].sort_index())
 
     port_returns = Metrics.get_daily_returns(nav)
     bench_returns = Metrics.get_daily_returns(bench_series)
 
+    leverage = float(request.args.get("leverage", 100000))
+    simulation = json.loads(
+        request.cookies.get("simulation") or "[]"
+    )
 
-    portf_positions_df = portfolio.get_portfolio_positions_df() 
+    sim_nav = None
+    sim_metrics = None
+    sim_nav_ts = None
 
-    portf_data = Market.get_historical_data(portf_positions_df["ticker"].to_list())
-    # port_weights = Metrics.get_portfolio_weights(portf_positions_df, portf_data)
+    if len(simulation) > 0:
+        sim_nav, sim_metrics = simulate(
+            selected_data, simulation, initial_cash, leverage)
+        
+        sim_nav_ts = [
+            {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}
+            for d, v in sim_nav.items()
+        ]
 
+    preview = request.cookies.get("preview")
+    preview_data = None
+    if preview:
+        market_data = Market.get_historical_data([preview])
+        preview_data = {
+            "name": preview,
+            "x": market_data["date"].apply(lambda x: x.strftime("%Y-%m-%d")).tolist(),
+            "y": market_data["price_close"].tolist(), 
+            "yaxis": "y2", 
+            "line": {
+                "dash": "solid",
+                "width": 2,
+                "color": "#FF7F50"
+            }
+        }
+
+
+
+    tickers = Market.get_all_tickers()
     metrics = {
         "total_return": f"{Metrics.get_ROI(nav):.7f}%",
-        "cash": f"${portfolio.cash:.1f}",
+        "cash": f"${selected_portfolio.cash:.1f}",
         "cagr": f"{Metrics.get_CAGR(nav):.7f}%",
         "volatility": f"{Metrics.get_annual_volatility(port_returns):.7f}",
         "sharpe": f"{Metrics.get_sharpe_ratio(port_returns):.7f}",
@@ -131,28 +218,80 @@ def index():
         # "value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
     }
 
-    return render_template(
+
+    if 'user' in session:
+        user = session['user']
+        print(f"logged in as {user["email"]}")
+    else:
+        user = None
+        print(f"not logged in yet")
+
+    ttn, ntt = Market.get_ticker_short_name_map()
+    ttn = {key:val for key, val in ttn.items() if val is not None}
+
+    resp = make_response(render_template(
         "index.html",
+        user = user, 
         portfolios=portfolios,
         selected_key=selected_key,
         metrics=metrics,
         positions=positions,
-        nav_ts=nav_ts,
-        initial_cash=f"{portfolio.initial_cash}",
-        leverage_limit=f"{portfolio.leverage_limit}",
+        simulation=simulation,
+        nav_ts=all_charts,
+        initial_cash=f"{selected_portfolio.initial_cash}",
+        leverage_limit=f"{selected_portfolio.leverage_limit}",
         api_route=os.getenv("API_ROUTE"),
-    )
+        shown=shown,
+        tickers=tickers,
+        sim_nav=sim_nav_ts,
+        sim_metrics=sim_metrics,
+        preview_data=preview_data, 
+        ticker_to_name = ttn, 
+        name_to_timer = ntt
+    ))
+    resp.set_cookie("base_portfolio", json.dumps(selected_data))
+    return resp
 
-@bp.route('/upload-portfolio', methods=['POST'])
+
+
+
+
+@bp.route('/upload_portfolio', methods=['POST'])
+@check_auth
 def upload_portfolio():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
 
     file = request.files['file']
     if file:
-        Portfolio.upload_portfolio(file)
+        file.stream.seek(0)
+        with io.TextIOWrapper(file.stream, encoding="utf-32-le", newline="") as f:
+            reader = csv.DictReader(f, delimiter=";")
+            rows = list(reader)
+            data = Portfolio.import_from_csv(rows)
+            Portfolio.upload_portfolio(data, file.filename.replace("csv", "json"))
 
     return jsonify({"status": "success"})
+
+
+
+@bp.route('/remove_portfolio', methods=['POST'])
+@check_auth
+def remove_portfolio():
+
+    selected_portfolio = request.form.get("portfolio")
+    if not selected_portfolio: 
+        return jsonify({"error": "No selected portfolio"}), 400
+
+    Portfolio.remove_portfolio(selected_portfolio)
+    return jsonify({"status": "success"})
+
+
+
+
+
+
+
 
 @bp.route("/script/index.js")
 def scriptIndex():

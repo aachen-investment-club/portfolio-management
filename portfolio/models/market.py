@@ -6,6 +6,7 @@ import numpy as np
 import requests
 import json
 import os
+import yfinance as yf
 
 from sqlalchemy import (
     select,
@@ -16,7 +17,7 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
 from portfolio.utils.aws_config import engine
-from portfolio.schemas.market import MarketDB
+from portfolio.schemas.market import MarketDB, TickerMeta
 from alpaca.trading import GetCalendarRequest
 from alpaca.trading.client import TradingClient
 from alpaca.data.requests import StockBarsRequest
@@ -35,6 +36,66 @@ class Market:
     """
     US_TREASURY_API = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/"
 
+
+
+
+    @classmethod
+    def load_ticker_metadata(cls, path, batch_size: int = 5_000): 
+
+        total_inserted = 0
+
+
+        with Session(engine) as session:
+            for chunk in pd.read_csv(path, chunksize=batch_size):
+                """
+                due to production memory constraints it is important to 
+                read the csv file in chunks!
+                """
+
+                print(total_inserted)
+                chunk = chunk.rename(columns={
+                    "exchange": "exchange",
+                    "shortname":"shortname",
+                    "longname":"longname",
+                    "symbol":"ticker",
+                    "sector":"sector",
+                    "industry":"industry",
+                    "origin":"origin", 
+                    "type":"type",
+                    "currency":"currency"
+                })
+                chunk = chunk.drop_duplicates(subset=["ticker"], keep="last")
+
+                records = chunk.to_dict(orient="records")
+                if not records:
+                    continue
+
+                stmt = (
+                    insert(TickerMeta)
+                    .values(records)
+                    .on_conflict_do_nothing(index_elements=["ticker"])
+                )
+
+                result = session.execute(stmt)
+                total_inserted += result.rowcount or 0
+
+                session.commit()
+
+        return total_inserted 
+
+
+
+    @classmethod
+    def check_meta_empty(cls):
+        stmt = select(TickerMeta.ticker).limit(1)
+        with Session(engine) as session:
+            #: in contrast to scalars, scalar selects the first ie equivalent
+            # to .execute().first()
+            result = session.scalar(stmt)
+            return result is None
+
+
+
     @classmethod
     def check_empty(cls):
         stmt = select(MarketDB.ticker).limit(1)
@@ -43,6 +104,13 @@ class Market:
             # to .execute().first()
             result = session.scalar(stmt)
             return result is None
+        
+    @classmethod
+    def get_all_tickers(cls):
+        stmt = select(MarketDB.ticker).distinct()
+        with Session(engine) as session:
+            result = session.scalars(stmt).all()
+            return result
 
     @classmethod
     def load_from_csv(cls, path: str, batch_size: int = 5_000) -> int:
@@ -131,6 +199,27 @@ class Market:
         with Session(engine) as session:
             return list(session.scalars(stmt))
 
+
+    @classmethod
+    def get_traded_etfs(cls) -> List[str]:
+        stmt = select(TickerMeta.ticker).where(TickerMeta.type=="ETF").distinct()
+        with Session(engine) as session:
+            return list(session.scalars(stmt))
+
+
+    @classmethod
+    def get_ticker_short_name_map(cls) -> List[str]:
+        stmt = select(TickerMeta.ticker, TickerMeta.shortname).distinct()
+        with Session(engine) as session:
+            rows = session.execute(stmt).all()
+        
+        ticker_to_name = {ticker:name for ticker, name in rows}
+        name_to_ticker = {name:ticker for ticker, name in rows}
+
+        return ticker_to_name, name_to_ticker
+
+
+
     @classmethod
     def get_us_treasury_bonds(cls) -> pd.DataFrame:
         """
@@ -179,8 +268,109 @@ class Market:
             latest_db_date = session.query(func.max(MarketDB.date)).scalar().date()
             return latest_db_date
 
+
+
+    
+
     @classmethod
-    def update_market(cls):
+    def update_market(cls,  batch_size: int = 300):
+        print("started market update")
+
+        trading_client = TradingClient(
+            api_key=os.getenv("APCA_API_KEY_ID"),
+            secret_key=os.getenv("APCA_API_SECRET_KEY")
+        )
+
+        today = datetime.now().date()
+        yesterday = today - timedelta(days=1)
+
+        calendar_req = GetCalendarRequest(start=today - timedelta(days=10), end=yesterday)
+        calendar = trading_client.get_calendar(calendar_req)
+        if not calendar:
+            print("no calendar data returned; aborting update")
+            return
+
+        target_end_date = calendar[-1].date  
+
+        latest_db_date = cls.get_latest_date_in_db()
+
+
+        tickers = list(cls.get_traded_assets())
+
+        start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
+        end_dt_excl = pd.to_datetime(target_end_date) + pd.Timedelta(days=1)
+
+        yfinance_data_output = yf.download(
+            tickers=tickers,
+            start=start_dt,
+            end=end_dt_excl,
+            interval="1d",
+            group_by="ticker",
+            progress=False,
+        )
+
+        if yfinance_data_output is None or yfinance_data_output.empty:
+            print("yfinance did not return anything")
+            return
+
+        rows = []
+
+        if isinstance(yfinance_data_output.columns, pd.MultiIndex):
+            if "Close" in yfinance_data_output.columns.get_level_values(0):
+                close = yfinance_data_output["Close"]
+                for t in close.columns:
+                    s = close[t].dropna()
+                    if not s.empty:
+                        rows.append(pd.DataFrame({"ticker": t, "date": s.index, "price_close": s.values}))
+            else:
+                for t in tickers:
+                    try:
+                        s = yfinance_data_output[t]["Close"].dropna()
+                    except Exception:
+                        continue
+                    if not s.empty:
+                        rows.append(pd.DataFrame({"ticker": t, "date": s.index, "price_close": s.values}))
+        else:
+            if "Close" in yfinance_data_output.columns:
+                s = yfinance_data_output["Close"].dropna()
+                if not s.empty:
+                    rows.append(pd.DataFrame({"ticker": tickers[0], "date": s.index, "price_close": s.values}))
+
+
+        df_bars = pd.concat(rows, ignore_index=True)
+        df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None).dt.floor("D")
+
+        df_bars = df_bars[
+            (df_bars["date"] >= start_dt) &
+            (df_bars["date"] <= pd.to_datetime(target_end_date))
+        ]
+
+
+        records = df_bars.to_dict(orient="records")
+        inserted = 0
+        with Session(engine) as session:
+            for i in range(0, len(records), batch_size):
+                batch = records[i:i + batch_size]
+                stmt = (
+                    insert(MarketDB)
+                    .values(batch)
+                    .on_conflict_do_nothing(index_elements=["ticker", "date"])
+                )
+                result = session.execute(stmt)
+                inserted += result.rowcount or 0
+            session.commit()
+
+        print("done updating market")
+
+
+
+
+
+
+
+
+    @classmethod
+    def update_market_old(cls):
         print("started updating market")
         trading_client = TradingClient(
             api_key=os.getenv("APCA_API_KEY_ID"),
