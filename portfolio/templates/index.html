@@ -121,7 +121,7 @@
                     </div>
 
                  <div class="bg-dark-subtle rounded p-3">
-                    {{ PurchaseSimulationPanel(tickers) }}
+                    {{ PurchaseSimulationPanel(tickers, ticker_to_name) }}
                 </div>
                 </aside>
 
@@ -159,8 +159,8 @@
                             class="form-control form-control-sm" placeholder="Filter">
                         <select id="preview-select" style="width: 10%;"
                             class="form-select form-control-sm" placeholder="NVDA, AAPL, TSLA">
-                            {% for ticker in tickers %}
-                                <option value="{{ticker}}">{{ticker}}</option>
+                            {% for ticker, shortname in ticker_to_name.items()%}
+                                <option value="{{ticker}}">{{shortname}}</option>
                             {% endfor%}
                         </select>
                         <button style="width: 10%;"
@@ -284,8 +284,8 @@
             const SIM_METRICS_TS = {{ sim_metrics | tojson }};
             const SIM_NAV_TS = {{ sim_nav | tojson }};
             const PREVIEW_DATA = {{ preview_data | tojson }};
-
-            const tickers = {{ tickers | safe }};
+            const TICKER_TO_NAME = {{ ticker_to_name | tojson }};
+            const tickers = {{ tickers | tojson }};
         </script>
 
         <script src="/script/index.js"></script>

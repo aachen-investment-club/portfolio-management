@@ -42,10 +42,19 @@ class Portfolio():
         total = 0
         for value in self.current_position.values():
             total += value
+
+        ttn, ntt = Market.get_ticker_short_name_map()
+
+
         position_weights = [{"symbol": symbol, "weight": position / total}
                             for symbol, position
                             in self.current_position.items()
                             if position != 0]
+        for item in position_weights:
+            if item["symbol"] in ttn: 
+                item["shortname"] = ttn[item["symbol"]]
+            else:
+                item["shortname"] = None 
         return position_weights
 
     def _signed_trades(self) -> pd.DataFrame:

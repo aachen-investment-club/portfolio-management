@@ -207,7 +207,16 @@ class Market:
             return list(session.scalars(stmt))
 
 
+    @classmethod
+    def get_ticker_short_name_map(cls) -> List[str]:
+        stmt = select(TickerMeta.ticker, TickerMeta.shortname).distinct()
+        with Session(engine) as session:
+            rows = session.execute(stmt).all()
+        
+        ticker_to_name = {ticker:name for ticker, name in rows}
+        name_to_ticker = {name:ticker for ticker, name in rows}
 
+        return ticker_to_name, name_to_ticker
 
 
 

@@ -206,17 +206,24 @@ if (SIM_METRICS && SIM_NAV) {
 
 
 
-function tickerOnChangeHandler(e, selector) {
-    const val = e.target.value.toUpperCase();
-    const filteredTickers = val.length > 0 ? tickers.filter(x => x.includes(val)) : tickers;
-    selector.innerHTML = '';
-    for (const ticker of filteredTickers) {
-        const option = document.createElement("option")
-        option.value = ticker;
-        option.innerHTML = ticker;
-        selector.appendChild(option);
-    }
+
+function queryFilterHandler(e, selector) {
+  const val = e.target.value.toLowerCase().trim();
+  const entries = Object.entries(TICKER_TO_NAME).filter(([t, name]) =>
+    !val || t.toLowerCase().includes(val) || name.toLowerCase().includes(val)
+  );
+  selector.innerHTML = "";
+  for (const [ticker, name] of entries) {
+    const option = document.createElement("option");
+    option.value = ticker;
+    option.innerHTML = name;
+    selector.appendChild(option);
+  }
 }
+
+
+
+
 
 async function showPreview() {
   console.log("Show clicked", preview_select.value);
@@ -230,8 +237,8 @@ async function clearPreview() {
   window.location.reload();
 }
 
-sim_ticker.addEventListener("input", (e) => tickerOnChangeHandler(e, sim_ticker_select));
-preview_filter.addEventListener("input", (e) => tickerOnChangeHandler(e, preview_select));
+preview_filter.addEventListener("input", (e) => queryFilterHandler(e, preview_select));
+sim_ticker.addEventListener("input", (e) => queryFilterHandler(e, sim_ticker_select));
 
 if (PREVIEW_DATA) {
   Plotly.addTraces(mainChart, PREVIEW_DATA);
