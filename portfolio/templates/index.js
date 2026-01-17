@@ -33,6 +33,16 @@ const layout = {
         gridcolor: "#666",
         zeroline: false
     },
+    yaxis2: {
+        title: {
+            text: "Asset Preview",
+            font: { size: 14, color: "#adb5bd" }
+        },
+        overlaying: "y",
+        side: "right",
+        gridcolor: "#444",
+        zeroline: false, 
+    },
     hovermode: "x unified"
 };
 
@@ -144,4 +154,39 @@ async function undo() {
 if (SIM_METRICS && SIM_NAV) {
   drawSimulationLine(SIM_NAV);
   showSimulationMetrics(SIM_METRICS);
+}
+
+
+const sim_ticker_select = document.getElementById("sim-ticker-select");
+const sim_ticker = document.getElementById("sim-ticker");
+const preview_select = document.getElementById("preview-select");
+const preview_filter = document.getElementById("preview-filter");
+
+function tickerOnChangeHandler(e, selector) {
+    const val = e.target.value.toUpperCase();
+    const filteredTickers = val.length > 0 ? tickers.filter(x => x.includes(val)) : tickers;
+    selector.innerHTML = '';
+    for (const ticker of filteredTickers) {
+        const option = document.createElement("option")
+        option.value = ticker;
+        option.innerHTML = ticker;
+        selector.appendChild(option);
+    }
+}
+
+async function showPreview() {
+  const ticker = preview_select.value;
+  await cookieStore.set("preview", ticker);
+  window.location.reload();
+}
+async function clearPreview() {
+  await cookieStore.delete("preview");
+  window.location.reload();
+}
+
+sim_ticker.addEventListener("input", (e) => tickerOnChangeHandler(e, sim_ticker_select));
+preview_filter.addEventListener("input", (e) => tickerOnChangeHandler(e, preview_select));
+
+if (PREVIEW_DATA) {
+  Plotly.addTraces(mainChart, PREVIEW_DATA);
 }
