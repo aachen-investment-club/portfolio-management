@@ -221,7 +221,7 @@ def index():
 
     if 'user' in session:
         user = session['user']
-        print(f"logged in as {user["email"]}")
+        print(f"logged in as {user['email']}")
     else:
         user = None
         print(f"not logged in yet")
