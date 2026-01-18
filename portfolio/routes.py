@@ -19,6 +19,9 @@ import csv
 import json
 from portfolio.extensions import cache, oauth
 from portfolio.utils.simulate import simulate
+from dotenv import load_dotenv
+
+load_dotenv()
 
 COGNITO_DOMAIN_PREFIX = os.getenv("COGNITO_DOMAIN_PREFIX")  
 COGNITO_REGION = os.getenv("AWS_REGION")   
