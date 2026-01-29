@@ -1,6 +1,8 @@
 # Portfolio Management
 
-Portable, lightweight dashboard with custom metrics for the Aachen Investment Club assets.
+
+Portable, lightweight dashboard with custom metrics to visualize
+the portfolios managed by the portfolio management group. 
 
 ## Installation
 
@@ -30,6 +32,10 @@ python3.12 -m portfolio
 python3.12 market_updater.py
 ```
 
+## Market data & credentials
+To get access to the market data & other credentials, please contact the admins. 
+
+Only for AIC Developer members. 
 
 
 ## Automatic API documentation
