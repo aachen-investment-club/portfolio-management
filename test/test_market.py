@@ -29,22 +29,22 @@ class TestMarket(unittest.TestCase):
     
     self.assertIsInstance(result, float)
 
-  # def test_get_price_invalid_ticker(self): 
+  def test_get_price_invalid_ticker(self): 
      
-  #   invalid_ticker = "AIC_Coin"
-  #   valid_date = datetime.date(2025, 11, 25)
+    invalid_ticker = "AIC_Coin"
+    valid_date = datetime.date(2025, 11, 25)
 
-  #   with self.assertRaises(TickerException):
-  #     Market.get_price(invalid_ticker, valid_date)
+    with self.assertRaises(TickerException):
+      Market.get_price(invalid_ticker, valid_date)
   
-  # @patch("portfolio.models.market.Market.get_traded_assets", return_value=["AAPL"])
-  # def test_get_price_invalid_trading_day(self):
 
-  #   valid_ticker = "AAPL"
-  #   invalid_trading_day_date = datetime.date(2025, 11, 23)
+  def test_get_price_invalid_trading_day(self):
+
+    valid_ticker = "AAPL"
+    invalid_trading_day_date = datetime.date(2025, 11, 23)
     
-  #   with self.assertRaises(TradingDayException):
-  #     Market.get_price(valid_ticker, invalid_trading_day_date)
+    with self.assertRaises(TradingDayException):
+      Market.get_price(valid_ticker, invalid_trading_day_date)
 
 
   def test_get_us_treasury_bonds(self): 
