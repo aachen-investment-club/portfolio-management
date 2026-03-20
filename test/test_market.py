@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import date as dte
 
 from portfolio.models.market import Market
-from portfolio.exceptions import TickerException, TradingDayException
+from portfolio.exceptions import TickerException, TradingDayException, DateException
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -16,6 +16,9 @@ load_dotenv()
 class TestMarket(unittest.TestCase): 
   """
   Unit tests for Market model.
+
+  Required:
+      APCA_API_KEY_ID, APCA_API_SECRET_KEY required for tests to run correctly
 
   To run:
       python -m unittest discover -s test 
@@ -45,6 +48,14 @@ class TestMarket(unittest.TestCase):
     
     with self.assertRaises(TradingDayException):
       Market.get_price(valid_ticker, invalid_trading_day_date)
+  
+  def test_get_price_invalid_date(self):
+
+    valid_ticker = "AAPL"
+    invalid_date = datetime.date(1999, 11, 22)
+    
+    with self.assertRaises(DateException):
+      Market.get_price(valid_ticker, invalid_date)
 
 
   def test_get_us_treasury_bonds(self): 
