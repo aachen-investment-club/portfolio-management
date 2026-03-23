@@ -6,13 +6,14 @@ import pandas as pd
 
 from flask import (request, session, redirect, 
                    url_for, Blueprint, render_template, 
-                   request, jsonify, make_response)
+                   request, jsonify, make_response, flash)
 
 import urllib
 
 from portfolio.models.portfolio import Portfolio
 from portfolio.models.metrics import Metrics
 from portfolio.models.market import Market
+from portfolio.exceptions import PortfolioBaseException
 #from portfolio.utils.aws_config import engine
 import io
 import csv
@@ -208,18 +209,24 @@ def index():
 
 
     tickers = Market.get_all_tickers()
-    metrics = {
-        "total_return": f"{Metrics.get_ROI(nav):.7f}%",
-        "cash": f"${selected_portfolio.cash:.1f}",
-        "cagr": f"{Metrics.get_CAGR(nav):.7f}%",
-        "volatility": f"{Metrics.get_annual_volatility(port_returns):.7f}",
-        "sharpe": f"{Metrics.get_sharpe_ratio(port_returns):.7f}",
-        "max_drawdown": f"{Metrics.get_maximum_drawdown(nav):.7f}",
-        "beta": f"{Metrics.get_beta(port_returns, bench_returns):.7f}",
-        "alpha": f"{Metrics.get_alpha(port_returns, bench_returns):.7f}",
-        "total_value": f"${float(nav.iloc[-1]):.1f}",
-        # "value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
-    }
+
+    try:
+        metrics = {
+            "total_return": f"{Metrics.get_ROI(nav):.7f}%",
+            "cash": f"${selected_portfolio.cash:.1f}",
+            "cagr": f"{Metrics.get_CAGR(nav):.7f}%",
+            "volatility": f"{Metrics.get_annual_volatility(port_returns):.7f}",
+            "sharpe": f"{Metrics.get_sharpe_ratio(port_returns):.7f}",
+            "max_drawdown": f"{Metrics.get_maximum_drawdown(nav):.7f}",
+            "beta": f"{Metrics.get_beta(port_returns, bench_returns):.7f}",
+            "alpha": f"{Metrics.get_alpha(port_returns, bench_returns):.7f}",
+            "total_value": f"${float(nav.iloc[-1]):.1f}",
+            # "value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
+        }
+    except PortfolioBaseException as e:
+        print(f"Metrics calculation failed: {e}")
+        flash("No data available for the selected date range.", "warning")
+        return redirect(url_for('bp.index'))
 
 
     if 'user' in session:

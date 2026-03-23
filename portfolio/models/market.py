@@ -24,7 +24,10 @@ from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 from alpaca.data.historical import StockHistoricalDataClient
 
-from portfolio.exceptions import TickerException, TradingDayException, DateException
+from portfolio.exceptions import (
+    TickerException,
+    TradingDayException,
+    DateException )
 
 
 DATE = "date"

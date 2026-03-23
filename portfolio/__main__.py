@@ -1,3 +1,14 @@
+import sentry_sdk
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    send_default_pii=True,
+)
+
 from portfolio.models.market import Market
 from portfolio.utils.aws_config import engine
 from portfolio.schemas.market import Base
@@ -7,12 +18,12 @@ Base.metadata.create_all(engine)
 
 from flask import Flask
 from flask_cors import CORS
-import os 
-from dotenv import load_dotenv
 
 from portfolio.extensions import cache, oauth
 from portfolio.routes import bp
 from portfolio.backend import bp_api
+
+
 
 load_dotenv()
 
@@ -47,6 +58,7 @@ if __name__ == "__main__":
     chunks_dev = 10000
 
     if Market.check_empty():
+        23
         print("market empty, proceeding with creation")
         Market.load_from_csv("./data/sp500_close_extended.csv", chunks_dev)
         #Market.load_from_csv("./data/sp500_close_current.csv", chunks_dev)
