@@ -1,3 +1,4 @@
+from ast import expr_context
 from functools import wraps
 
 import os
@@ -14,6 +15,7 @@ from portfolio.models.portfolio import Portfolio
 from portfolio.models.metrics import Metrics
 from portfolio.models.market import Market
 from portfolio.exceptions import PortfolioBaseException
+from portfolio.utils.validators import validate_date
 #from portfolio.utils.aws_config import engine
 import io
 import csv
@@ -28,11 +30,35 @@ COGNITO_DOMAIN_PREFIX = os.getenv("COGNITO_DOMAIN_PREFIX")
 COGNITO_REGION = os.getenv("AWS_REGION")   
 COGNITO_CLIENT_ID = os.getenv("COGNITO_CLIENT_ID")
 
+# --- Constants ---
+DEFAULT_START = datetime.datetime(2000, 1, 3).date().strftime('%Y-%m-%d')
+DEFAULT_INITIAL_CASH = 1000000
+DEFAULT_LEVERAGE = 100000
 
 
 bp = Blueprint("bp", __name__)
 
+# --------------------------------------
+# Route helpers
+# --------------------------------------
 
+def parse_date_range(start_date, end_date):
+    default_end = Market.get_latest_date_in_db().strftime('%Y-%m-%d')
+    try:
+        validate_date(start_date=start_date, end_date=end_date)
+    except PortfolioBaseException as e:
+        print(f"Date validation failed: {e}, falling back to defaults.")
+        flash(e.flash_message, "warning")
+        start_date = DEFAULT_START
+        end_date = default_end
+
+    to_timestamp = lambda s: pd.to_datetime(datetime.datetime.strptime(s, '%Y-%m-%d').date())
+    return to_timestamp(start_date), to_timestamp(end_date)
+
+
+# --------------------------------------
+# Auth
+# --------------------------------------
 def check_auth(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -44,7 +70,29 @@ def check_auth(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# --------------------------------------
+# Cache helpers
+# --------------------------------------
 
+@cache.memoize(timeout=600)
+def get_cached_nav_data(
+        selected_data,
+        initial_cash,
+        leverage_limit):
+    portfolio = Portfolio(initial_cash, leverage_limit)
+    portfolio.import_from_dict(selected_data)
+    nav = portfolio.get_daily_nav()
+
+    return portfolio, nav
+
+
+@cache.memoize(timeout=600)
+def get_cached_bonds_data():
+    return Market.get_us_treasury_bonds()
+
+# --------------------------------------
+# Routes
+# --------------------------------------
 
 @bp.route('/login')
 def login():
@@ -88,37 +136,20 @@ def update_market():
     return {"status": "success"}
 
 
-@cache.memoize(timeout=600)
-def get_cached_nav_data(
-        selected_data,
-        initial_cash,
-        leverage_limit):
-    portfolio = Portfolio(initial_cash, leverage_limit)
-    portfolio.import_from_dict(selected_data)
-    nav = portfolio.get_daily_nav()
 
-    return portfolio, nav
-
-
-@cache.memoize(timeout=600)
-def get_cached_bonds_data():
-    return Market.get_us_treasury_bonds()
 
 
 @bp.route("/")
 def index():
-    initial_cash = request.args.get("cash", default=1000000, type=float)
-    leverage_limit = request.args.get("leverage", default=100000, type=float)
-
-    default_start = datetime.datetime(2000, 1, 3).date().strftime('%Y-%m-%d')
-    start_date = request.args.get("start_date", default=default_start)
-    start_date = pd.to_datetime(
-            datetime.datetime.strptime(start_date, '%Y-%m-%d').date())
+    initial_cash = request.args.get("cash", default=DEFAULT_INITIAL_CASH, type=float)
+    leverage_limit = request.args.get("leverage", default=DEFAULT_LEVERAGE, type=float)
 
     default_end = Market.get_latest_date_in_db().strftime('%Y-%m-%d')
-    end_date = request.args.get("end_date", default=default_end) or default_end
-    end_date = pd.to_datetime(
-            datetime.datetime.strptime(end_date, '%Y-%m-%d').date())
+
+    start_date, end_date = parse_date_range(
+        request.args.get("start_date", default=DEFAULT_START),
+        request.args.get("end_date", default=default_end)
+    )
 
     portfolios = Portfolio.list_portfolios()
     selected_key = request.args.get("portfolio")
@@ -225,7 +256,7 @@ def index():
         }
     except PortfolioBaseException as e:
         print(f"Metrics calculation failed: {e}")
-        flash("No data available for the selected date range.", "warning")
+        flash(e.flash_message, "warning")
         return redirect(url_for('bp.index'))
 
 

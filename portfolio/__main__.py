@@ -58,7 +58,6 @@ if __name__ == "__main__":
     chunks_dev = 10000
 
     if Market.check_empty():
-        23
         print("market empty, proceeding with creation")
         Market.load_from_csv("./data/sp500_close_extended.csv", chunks_dev)
         #Market.load_from_csv("./data/sp500_close_current.csv", chunks_dev)
