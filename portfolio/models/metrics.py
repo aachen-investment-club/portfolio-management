@@ -99,7 +99,16 @@ class Metrics:
 
         # Calculate Beta using Covariance/Variance matrix
         # cov_matrix[0,1] is covariance, cov_matrix[1,1] is variance of benchmark
-        cov_matrix = np.cov(aligned_port_ret, aligned_bench_ret)
+  
+        # Handle cases where missing data results in 0 overlapping days
+        # between the portfolio and benchmark, preventing a fatal Numpy crash
+        try:
+            cov_matrix = np.cov(aligned_port_ret, aligned_bench_ret)
+        except RuntimeWarning:
+            return 0.0
+        except Exception:
+            return 0.0
+
         beta = cov_matrix[0, 1] / cov_matrix[1, 1]
 
         return beta
