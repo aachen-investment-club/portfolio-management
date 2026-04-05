@@ -174,23 +174,81 @@
                         
                     </div>
                     
-                    <h2 class="mt-2">Portfolio Metrics</h2>
+                <h2 class="mt-2">Portfolio Metrics</h2>
 
-                    <div class="row g-3 mb-3">
-                        {{ MetricCard("Total Return", metrics.total_return, id="kpi-total-return") }}
-                        {{ MetricCard("Total Value", metrics.total_value, id="kpi-total-value") }}
-                        {{ MetricCard("Cash", metrics.cash, id="kpi-cash") }}
-                        {{ MetricCard("Volatility", metrics.volatility, id="kpi-volatility") }}
-                    </div>
-                    <div class="row g-3 mb-3">
-                        {{ MetricCard("Sharpe Ratio", metrics.sharpe, id="kpi-sharpe") }}
-                        {{ MetricCard("Jensen's Alpha", metrics.alpha, id="kpi-alpha") }}
-                        {{ MetricCard("Beta", metrics.beta, id="kpi-beta") }}
-                        {{ MetricCard("Max Drawdown", metrics.max_drawdown, id="kpi-max-drawdown") }}
-                    </div>
-                    <div class="row g-3 mb-3">
-                        {{ MetricCard("CAGR", metrics.cagr, id="kpi-cagr") }}
-                    </div>
+                <div class="row g-3 mb-3">
+                    {{ MetricCard("Total Return", metrics.total_return, id="kpi-total-return",
+                        description="What is total return?<br><br>
+                Total return is the full gain or loss from an investment over a period of time. It includes both the change in price and any money the investment paid out, like dividends or interest.<br><br>
+                How is it calculated?<br><br>
+                Total Return = ((Ending Value - Starting Value + Income) / Starting Value) x 100<br><br>
+                Income means things like dividends or interest. If those payouts are reinvested, they are also part of the total return.<br><br>
+                Why is it useful?<br><br>
+                It gives a more complete picture than price change alone. A stock may not rise much in price, but it can still give a good return if it pays dividends. That is why total return is useful for comparing investments fairly. (Banton, 2025)") }}
+
+                    {{ MetricCard("Total Value", metrics.total_value, id="kpi-total-value",
+                        description="What is total value?<br><br>
+                Total value is the total worth of everything in your portfolio right now. It adds up the current value of all your investments.<br><br>
+                How is it calculated?<br><br>
+                Portfolio Value = sum of (quantity of each asset x current market price)<br><br>
+                Why is it useful?<br><br>
+                It gives a quick snapshot of where your portfolio stands today. It helps you track progress, compare performance over time, and decide when you may need to rebalance. (StartEngine Team, 2026)") }}
+
+                    {{ MetricCard("Cash", metrics.cash, id="kpi-cash",
+                        description="Cash is the uninvested money currently available in the portfolio. (Hayes, 2025)") }}
+
+                    {{ MetricCard("Volatility", metrics.volatility, id="kpi-volatility",
+                        description="What is volatility?<br><br>
+                Volatility shows how much and how quickly prices move up and down over time.<br><br>
+                How is it calculated?<br><br>
+                A common way is standard deviation of returns, often annualized.<br><br>
+                Why is it useful?<br><br>
+                It helps you understand uncertainty and risk. Higher volatility usually means less predictable prices. (Hayes, 2025)") }}
+                </div>
+
+                <div class="row g-3 mb-3">
+                    {{ MetricCard("Sharpe Ratio", metrics.sharpe, id="kpi-sharpe",
+                        description="What is Sharpe ratio?<br><br>
+                Sharpe ratio shows how much extra return you got for the risk you took.<br><br>
+                How is it calculated?<br><br>
+                Sharpe Ratio = (Portfolio Return - Risk-Free Rate) / Volatility<br><br>
+                Why is it useful?<br><br>
+                It helps compare investments on a risk-adjusted basis. Higher is generally better. (Fernando, 2025)") }}
+
+                    {{ MetricCard("Jensen's Alpha", metrics.alpha, id="kpi-alpha",
+                        description="What is Jensen's alpha?<br><br>
+                Jensen's alpha measures how much a portfolio beat or missed its expected return after adjusting for market risk (beta).<br><br>
+                How is it calculated?<br><br>
+                Alpha = Portfolio Return - (Risk-Free Rate + Beta x (Market Return - Risk-Free Rate))<br><br>
+                Why is it useful?<br><br>
+                It helps judge manager skill more fairly by accounting for risk.") }}
+
+                    {{ MetricCard("Beta", metrics.beta, id="kpi-beta",
+                        description="What is beta?<br><br>
+                Beta measures how sensitive a portfolio is to market moves.<br><br>
+                How is it calculated?<br><br>
+                Beta = Covariance(portfolio returns, market returns) / Variance(market returns)<br><br>
+                Why is it useful?<br><br>
+                It helps you understand market risk and match investments to your risk tolerance. (CFI, 2026)") }}
+
+                    {{ MetricCard("Max Drawdown", metrics.max_drawdown, id="kpi-max-drawdown",
+                        description="What is max drawdown?<br><br>
+                Max drawdown is the biggest drop from a past peak to a later low before a new peak is reached.<br><br>
+                How is it calculated?<br><br>
+                Max Drawdown = (Trough Value - Peak Value) / Peak Value<br><br>
+                Why is it useful?<br><br>
+                It shows worst historical downside risk and potential pain during downturns. (CFI, 2026)") }}
+                </div>
+
+                <div class="row g-3 mb-3">
+                    {{ MetricCard("CAGR", metrics.cagr, id="kpi-cagr",
+                        description="What is CAGR?<br><br>
+                CAGR is the steady yearly growth rate that would take an investment from start value to end value, assuming reinvestment.<br><br>
+                How is it calculated?<br><br>
+                CAGR = ((Ending Value / Beginning Value)^(1 / Number of Years) - 1) x 100<br><br>
+                Why is it useful?<br><br>
+                It makes it easy to compare long-term growth, but it does not show volatility by itself. (CFI, 2026)") }}
+                </div>
 
                 </section>
                 

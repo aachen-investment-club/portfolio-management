@@ -241,6 +241,18 @@ function deleteCookie(name) {
 }
 
 
+function initializeMetricPopovers() {
+  const popoverElements = document.querySelectorAll('[data-bs-toggle="popover"]');
+  popoverElements.forEach((element) => {
+    new bootstrap.Popover(element, {
+      container: "body",
+      html: true
+    });
+  });
+}
+
+initializeMetricPopovers();
+
 async function showPreview() {
 
   const ticker = preview_select.value;

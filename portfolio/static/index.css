@@ -12,6 +12,25 @@ body {
     color: white !important;
 }
 
+
+.metric-info-btn {
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    line-height: 1;
+    flex: 0 0 auto;
+}
+
+.metric-popover {
+    --bs-popover-max-width: 260px;
+}
+
+
 @media (min-width: 1400px) {
     .metrics-row {
         display: grid !important;
