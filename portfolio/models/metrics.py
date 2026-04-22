@@ -4,6 +4,12 @@ from scipy.stats import norm
 
 from portfolio.models.market import Market
 
+from portfolio.exceptions import (
+    EmptyPriceException,
+    InvalidPriceException,
+    InsufficientDataException,
+)
+
 tradingDays: int = 252
 
 
@@ -40,7 +46,7 @@ class Metrics:
 
     @staticmethod
     def get_basic_metrics(assets: pd.DataFrame) -> pd.DataFrame:
-        prices = Market.get_latest_price(assets["ticker"].to_list())
+        prices = Market.get_latest_prices(assets["ticker"].to_list())
         df_merged = pd.merge(assets, prices, how="left", on="ticker")
         df_merged["asset_value"] = df_merged["shares"] * df_merged["price close"]
         return df_merged
@@ -59,6 +65,9 @@ class Metrics:
 
     @staticmethod
     def get_annual_volatility(returns: pd.Series, periods_per_year: int = 252) -> float:
+        if returns.empty:
+            raise EmptyPriceException("")
+        # must check
         annual_vol = returns.std() * np.sqrt(periods_per_year)
         return annual_vol
 
@@ -66,7 +75,9 @@ class Metrics:
     def get_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0, 
                          periods_per_year: int = 252) -> float:
         # normalize the annual risk free rate as per the number of trading days in a year
-
+        if returns.empty:
+            raise EmptyPriceException("")
+        # must check
         norm_risk_free_rate = risk_free_rate / periods_per_year
         excess_returns = returns - norm_risk_free_rate
         excess_returns_mean = excess_returns.mean()
@@ -76,7 +87,6 @@ class Metrics:
         sharpe_ratio_annual = (excess_returns_mean / excess_returns_std) \
                 * np.sqrt(1 / periods_per_year)
         return sharpe_ratio_annual
-
 
     @staticmethod
     def get_beta(
@@ -94,6 +104,10 @@ class Metrics:
         # This handles cases where one series might have missing dates
         # Only dates where portfolio_returns and benchmark_returns have datapoints are kept
         df = pd.concat([portfolio_returns, benchmark_returns], axis=1).dropna()
+
+        if (len(df)<2):
+            raise InsufficientDataException(required=2, got=len(df))
+        
         aligned_port_ret = df.iloc[:, 0]
         aligned_bench_ret = df.iloc[:, 1]
 
@@ -128,6 +142,11 @@ class Metrics:
         """
         # Align data
         df = pd.concat([portfolio_returns, benchmark_returns], axis=1).dropna()
+
+        if (len(df)<2):
+            raise InsufficientDataException(required=2, got=len(df))
+        
+        # must check
         aligned_port_ret = df.iloc[:, 0]
         aligned_bench_ret = df.iloc[:, 1]
 
@@ -186,16 +205,33 @@ class Metrics:
     # return on investment
     @staticmethod
     def get_ROI(prices: pd.Series) -> float:
+        if prices.empty:
+            raise EmptyPriceException("")
+        if (len(prices) < 2):
+            raise InsufficientDataException(required=2, got=len(prices))
+        
         start_price = prices.iloc[0]
         end_price = prices.iloc[-1]
-
+        
+        if start_price <= 0:
+            raise InvalidPriceException(f"Start price must be positive, got {start_price}")
         roi = (end_price - start_price) / start_price * 100
         return roi
-
+    
+    @staticmethod
     def get_CAGR(prices: pd.Series) -> float:
+        if prices.empty:
+            raise EmptyPriceException("")
+        
+        if (len(prices)<2):
+            raise InsufficientDataException(required=2, got=len(prices))
+        
         start_price = prices.iloc[0]
         end_price = prices.iloc[-1]
 
+        if (start_price<=0):
+            raise InvalidPriceException(f"Start price must be positive, got {start_price}")
+        
         days = (prices.index[-1] - prices.index[0]).days
         years = days / 252.0
 
@@ -215,6 +251,10 @@ class Metrics:
     '''
     @staticmethod
     def get_maximum_drawdown(prices: pd.Series) -> float:
+        if prices.empty:
+            raise EmptyPriceException("")
+        
+        # must check this
         rolling_max = prices.cummax()
         drawdowns = prices / rolling_max - 1
         mdd = drawdowns.min() * 100
