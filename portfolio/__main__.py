@@ -2,12 +2,6 @@ import sentry_sdk
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
-
-sentry_sdk.init(
-    dsn=os.getenv("SENTRY_DSN"),
-    send_default_pii=True,
-)
 
 from portfolio.models.market import Market
 from portfolio.utils.aws_config import engine
@@ -26,6 +20,11 @@ from portfolio.backend import bp_api
 
 
 load_dotenv()
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    send_default_pii=True,
+)
 
 app = Flask(__name__)
 
