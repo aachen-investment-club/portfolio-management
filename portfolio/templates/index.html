@@ -29,6 +29,17 @@
         </nav>
 
         <main class="container-fluid">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show m-3" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
             <div class="row min-vh-100 g-3">
                 <!-- Sidebar -->
                 <aside class="col-12 col-lg-2 d-flex flex-column gap-3">
@@ -249,6 +260,12 @@
                                 <li class="d-flex align-items-center gap-2 mb-2">
                                 <span>Contributor - Lukas Hahn</span>
                                 <a href="https://www.linkedin.com/in/lukas-hahn-768655300/" target="_blank" class="link-light small text-decoration-none">
+                                    LinkedIn
+                                </a>
+                                </li>
+                                <li class="d-flex align-items-center gap-2 mb-2">
+                                <span>Contributor - Arash Mohammadpour</span>
+                                <a href="https://www.linkedin.com/in/arash-mohamadpour-7b930b192/" target="_blank" class="link-light small text-decoration-none">
                                     LinkedIn
                                 </a>
                                 </li>

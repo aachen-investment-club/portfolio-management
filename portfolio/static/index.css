@@ -49,3 +49,11 @@ body {
     color: #f5c542;  
 }
 
+.alert {
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    border-radius: 4px;
+}
+.alert-warning { background-color: #fff3cd; color: #856404; }
+.alert-error   { background-color: #f8d7da; color: #721c24; }
+

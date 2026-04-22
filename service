@@ -1,0 +1,16 @@
+[Unit]
+After=network.target
+
+[Service]
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/home/ec2-user/portfolio-management
+Environment="/home/ec2-user/portfolio-management/venv/bin"
+ExecStart=/home/ec2-user/portfolio-management/venv/bin/gunicorn \
+    --workers 2 \
+    --bind 127.0.0.1:5000 \
+    wsgi:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
