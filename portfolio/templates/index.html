@@ -181,7 +181,8 @@
                         description="What is total return?<br><br>
                 Total return is the full gain or loss from an investment over a period of time. It includes both the change in price and any money the investment paid out, like dividends or interest.<br><br>
                 How is it calculated?<br><br>
-                Total Return = ((Ending Value - Starting Value + Income) / Starting Value) x 100<br><br>
+                $$\\text{Total Return} = \\left(\\frac{\\text{Ending Value} - \\text{Starting Value} + \\text{Income}}{\\text{Starting Value}}\\right) \\times 100$$<br><br>
+                EV = Ending Value, SV = Starting Value, I = Income.
                 Income means things like dividends or interest. If those payouts are reinvested, they are also part of the total return.<br><br>
                 Why is it useful?<br><br>
                 It gives a more complete picture than price change alone. A stock may not rise much in price, but it can still give a good return if it pays dividends. That is why total return is useful for comparing investments fairly. (Banton, 2025)") }}
@@ -190,7 +191,7 @@
                         description="What is total value?<br><br>
                 Total value is the total worth of everything in your portfolio right now. It adds up the current value of all your investments.<br><br>
                 How is it calculated?<br><br>
-                Portfolio Value = sum of (quantity of each asset x current market price)<br><br>
+                $$\\text{Portfolio Value} = \\sum_{i=1}^{n} q_i \\cdot p_i$$<br><br>
                 Why is it useful?<br><br>
                 It gives a quick snapshot of where your portfolio stands today. It helps you track progress, compare performance over time, and decide when you may need to rebalance. (StartEngine Team, 2026)") }}
 
@@ -211,7 +212,7 @@
                         description="What is Sharpe ratio?<br><br>
                 Sharpe ratio shows how much extra return you got for the risk you took.<br><br>
                 How is it calculated?<br><br>
-                Sharpe Ratio = (Portfolio Return - Risk-Free Rate) / Volatility<br><br>
+                $$\\text{Sharpe Ratio} = \\frac{R_p - R_f}{\\sigma_p}$$<br><br>
                 Why is it useful?<br><br>
                 It helps compare investments on a risk-adjusted basis. Higher is generally better. (Fernando, 2025)") }}
 
@@ -219,7 +220,7 @@
                         description="What is Jensen's alpha?<br><br>
                 Jensen's alpha measures how much a portfolio beat or missed its expected return after adjusting for market risk (beta).<br><br>
                 How is it calculated?<br><br>
-                Alpha = Portfolio Return - (Risk-Free Rate + Beta x (Market Return - Risk-Free Rate))<br><br>
+                $$\\alpha = R_p - \\left(R_f + \\beta\\left(R_m - R_f\\right)\\right)$$<br><br> 
                 Why is it useful?<br><br>
                 It helps judge manager skill more fairly by accounting for risk.") }}
 
@@ -227,7 +228,7 @@
                         description="What is beta?<br><br>
                 Beta measures how sensitive a portfolio is to market moves.<br><br>
                 How is it calculated?<br><br>
-                Beta = Covariance(portfolio returns, market returns) / Variance(market returns)<br><br>
+                $$\\beta = \\frac{\\operatorname{Cov}(R_p, R_m)}{\\operatorname{Var}(R_m)}$$<br><br>
                 Why is it useful?<br><br>
                 It helps you understand market risk and match investments to your risk tolerance. (CFI, 2026)") }}
 
@@ -235,7 +236,7 @@
                         description="What is max drawdown?<br><br>
                 Max drawdown is the biggest drop from a past peak to a later low before a new peak is reached.<br><br>
                 How is it calculated?<br><br>
-                Max Drawdown = (Trough Value - Peak Value) / Peak Value<br><br>
+                $$\\text{Max Drawdown} = \\frac{\\text{Trough Value} - \\text{Peak Value}}{\\text{Peak Value}}$$<br><br>
                 Why is it useful?<br><br>
                 It shows worst historical downside risk and potential pain during downturns. (CFI, 2026)") }}
                 </div>
@@ -245,7 +246,7 @@
                         description="What is CAGR?<br><br>
                 CAGR is the steady yearly growth rate that would take an investment from start value to end value, assuming reinvestment.<br><br>
                 How is it calculated?<br><br>
-                CAGR = ((Ending Value / Beginning Value)^(1 / Number of Years) - 1) x 100<br><br>
+                $$\\text{CAGR} = \\left(\\left(\\frac{\\text{Ending Value}}{\\text{Beginning Value}}\\right)^{\\frac{1}{\\text{Years}}} - 1\\right) \\times 100$$<br><br>
                 Why is it useful?<br><br>
                 It makes it easy to compare long-term growth, but it does not show volatility by itself. (CFI, 2026)") }}
                 </div>
@@ -315,6 +316,7 @@
 
                             <div class="col-12 col-md-4">
                             <h6 class="text-uppercase text-light">Join Us</h6>
+
                             <p class="small text-light mb-2">
                                 Interested in our club? 
                             </p>
@@ -331,7 +333,73 @@
                 </div>
             </div>
 
+                                        <div class="references-box mt-4 p-3 rounded">
+                                <h6 class="text-uppercase text-light mb-2">Bibliography</h6>
+                                <ul class="references-list small mb-0">
+                                    <li>
+                                        <a class="link-light text-decoration-none" target="_blank" rel="noopener noreferrer"
+                                        href="https://www.investopedia.com/terms/t/totalreturn.asp">
+                                        Investopedia - Total Return
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="link-light text-decoration-none" target="_blank" rel="noopener noreferrer"
+                                        href="https://www.startengine.com/blog/portfolio-value">
+                                        StartEngine - Portfolio Value
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="link-light text-decoration-none" target="_blank" rel="noopener noreferrer"
+                                        href="https://www.investopedia.com/terms/v/volatility.asp">
+                                        Investopedia - Volatility
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="link-light text-decoration-none" target="_blank" rel="noopener noreferrer"
+                                        href="https://www.investopedia.com/terms/s/sharperatio.asp">
+                                        Investopedia - Sharpe Ratio
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="link-light text-decoration-none" target="_blank" rel="noopener noreferrer"
+                                        href="https://www.investopedia.com/terms/j/jensensmeasure.asp">
+                                        Investopedia - Jensen's Alpha
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="link-light text-decoration-none" target="_blank" rel="noopener noreferrer"
+                                        href="https://corporatefinanceinstitute.com/resources/valuation/what-is-beta-guide/">
+                                        CFI - Beta
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="link-light text-decoration-none" target="_blank" rel="noopener noreferrer"
+                                        href="https://www.investopedia.com/terms/m/maximum-drawdown-mdd.asp">
+                                        Investopedia - Max Drawdown
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="link-light text-decoration-none" target="_blank" rel="noopener noreferrer"
+                                        href="https://www.investopedia.com/terms/c/cagr.asp">
+                                        Investopedia - CAGR
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+
         </footer>
+
+        <script>
+        window.MathJax = {
+            tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' }
+        };
+        </script>
+        <script id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 
         <script src="https://cdn.plot.ly/plotly-3.2.0.min.js" charset="utf-8"></script>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"

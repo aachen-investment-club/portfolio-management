@@ -241,12 +241,28 @@ function deleteCookie(name) {
 }
 
 
+function typesetMathIn(el) {
+  if (window.MathJax && window.MathJax.typesetPromise) {
+    return window.MathJax.typesetPromise([el]).catch((err) => {
+      console.error("MathJax typeset failed:", err);
+    });
+  }
+  return Promise.resolve();
+}
+
 function initializeMetricPopovers() {
   const popoverElements = document.querySelectorAll('[data-bs-toggle="popover"]');
+
   popoverElements.forEach((element) => {
     new bootstrap.Popover(element, {
       container: "body",
       html: true
+    });
+
+    element.addEventListener("shown.bs.popover", () => {
+      const popovers = document.querySelectorAll(".popover.show");
+      const tip = popovers[popovers.length - 1];
+      if (tip) typesetMathIn(tip);
     });
   });
 }
