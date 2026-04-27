@@ -111,6 +111,8 @@ class Portfolio():
         )
 
         prices.index = pd.to_datetime(prices.index).normalize()
+        # Forward fill to prevent sudden drop bugs
+        prices = prices.ffill()
         return prices
 
     def get_cash_ts(self, dates: pd.Index) -> pd.Series:
