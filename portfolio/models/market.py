@@ -24,6 +24,11 @@ from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 from alpaca.data.historical import StockHistoricalDataClient
 
+from portfolio.exceptions import (
+    TickerException,
+    TradingDayException,
+    DateException )
+
 
 DATE = "date"
 TICKER = "ticker"
@@ -152,23 +157,17 @@ class Market:
                 session.commit()
 
         return total_inserted 
-    
-   
-
-   
-
 
     @classmethod
     def get_price(cls, ticker: str, date: datetime.date)->np.float64: 
         if ticker not in cls.get_traded_assets():
-            #:TODO: make this error more expressive (indicate whether ticker or date error)
-            raise Exception("the selected ticker is not traded in the market")
+            raise TickerException(f"Ticker {ticker} is not traded in the market.")
 
-        if not cls.is_trading_day(date): #: this may also raise a more descriptive exception
-            raise Exception("the selected date is not a trading date")
+        if not cls.is_trading_day(date): 
+            raise TradingDayException(f"{date} is not a trading day (might be weekend or public holiday).")
 
         if date not in cls.get_trading_days(): 
-            raise Exception("the selected date is unavailable in the market") 
+            raise DateException(f"{date} is not available in the market database.") 
 
         stmt = (
             select(MarketDB.price_close).where(

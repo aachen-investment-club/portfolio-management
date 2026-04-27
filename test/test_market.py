@@ -1,64 +1,62 @@
 import unittest
-
-from dotenv import load_dotenv
-
-load_dotenv()#: it is important to call this before the market!!
-
-from portfolio.models.market import Market, DateException, TickerException, TradingDayException
-from portfolio.models.portfolio import Portfolio
-import os
-import pandas as pd
 import datetime
+
+import pandas as pd
 from datetime import date as dte
 
+from portfolio.models.market import Market
+from portfolio.exceptions import TickerException, TradingDayException, DateException
+
+from dotenv import load_dotenv
+load_dotenv()
 
 
 
 
 class TestMarket(unittest.TestCase): 
   """
-  python -m unittest discover -s test 
+  Unit tests for Market model.
+
+  Required:
+      APCA_API_KEY_ID, APCA_API_SECRET_KEY required for tests to run correctly
+
+  To run:
+      python -m unittest discover -s test 
   """
 
-  def setUp(self):
-    """this runs before each test!"""
-    Market.init("./data/sp500_close_current.csv")
+  def test_get_price_valid(self):
+    valid_ticker = "AAPL"
+    valid_date = datetime.date(2025, 11, 25)
 
+    result = Market.get_price(valid_ticker, valid_date)
+    
+    self.assertIsInstance(result, float)
 
-
-  def test_init(self):
-    """Test whether the update function updates upto the last trading day"""
-    if not os.path.isfile("./data/test_quotes.csv"): 
-        Market.init("./data/sp500_close_current.csv")
-        date = datetime.date(2022,4,10)
-        subquotes = Market.quotes[Market.quotes.index.get_level_values("Date")<=pd.Timestamp(date)]
-        subquotes.to_csv("./data/test_quotes.csv")
-
-    Market.init("./data/test_quotes.csv")
-    quotes = Market.quotes
-    max_date = quotes.index.get_level_values("Date").max()
-    truth_date = pd.Timestamp(Market.get_latest_trading_day())
-    self.assertEqual(max_date, truth_date)
-
-    Market.is_trading_day(max_date)
-
-
-  def test_get_price(self): 
+  def test_get_price_invalid_ticker(self): 
      
-    wrong_trading_day = datetime.date(2025, 11, 23) #: sunday
-    date= datetime.date(2025, 11, 25) 
+    invalid_ticker = "AIC_Coin"
+    valid_date = datetime.date(2025, 11, 25)
 
+    with self.assertRaises(TickerException):
+      Market.get_price(invalid_ticker, valid_date)
+  
 
+  def test_get_price_invalid_trading_day(self):
 
-    wrong_ticker  = "AIC_COIN"
-    ticker = "AAPL"
+    valid_ticker = "AAPL"
+    invalid_trading_day_date = datetime.date(2025, 11, 23)
+    
+    with self.assertRaises(TradingDayException):
+      Market.get_price(valid_ticker, invalid_trading_day_date)
+  
+  def test_get_price_invalid_date(self):
 
+    valid_ticker = "AAPL"
+    invalid_date = datetime.date(1999, 11, 22)
+    
+    with self.assertRaises(DateException):
+      Market.get_price(valid_ticker, invalid_date)
 
-    with self.assertRaises(TickerException): 
-      Market.get_price(wrong_ticker, date)
-
-    with self.assertRaises(TradingDayException): 
-      Market.get_price(ticker, wrong_trading_day)
 
   def test_get_us_treasury_bonds(self): 
     """checks if the nr of bond entries matches the monthly records since 2001. """
