@@ -8,28 +8,27 @@ the portfolios managed by the portfolio management group.
 
 1. Setup the `.env` file based on the `.env.example` template.
 2. [optional] Create a virtual python environment using
-
-```
+Assuming bash: 
+```sh
 python3.12 -m venv env && source env/bin/activate
 ```
 
 3. Run installation of dependencies
-
-```
+```sh
 pip install -r requirements.txt
 ```
 
 4. To run the application, simply run
 
-```
-python3.12 -m portfolio
+```sh
+python -m portfolio
 ```
 
 
 5. To manually update the market run  
 
-```
-python3.12 market_updater.py
+```sh
+python market_updater.py
 ```
 
 ## Market data & credentials
