@@ -46,7 +46,6 @@ oauth.register(
 )
 
 
-
 cache.init_app(app, config={
     "CACHE_TYPE": "SimpleCache",
     "CACHE_DEFAULT_TIMEOUT": 300,
