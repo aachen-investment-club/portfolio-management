@@ -34,8 +34,9 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY --from=tester /app/portfolio /app/portfolio
 COPY --from=tester /app/wsgi.py /app/wsgi.py   # <-- important!
 
-# Optional: copy static files, templates, etc. if they exist outside portfolio/
-# COPY --from=tester /app/static /app/static
+# Copy static files, templates, etc.
+COPY --from=tester /app/portfolio/static /app/portfolio/static
+COPY --from=tester /app/portfolio/templates /app/portfolio/templates
 
 # Production settings
 ENV FLASK_APP=wsgi.py

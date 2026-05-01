@@ -31,3 +31,6 @@ market.db
 market_copy.db
 
 notes.md
+
+# Backup files
+*.orig
