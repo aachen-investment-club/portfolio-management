@@ -34,3 +34,6 @@ notes.md
 
 # Backup files
 *.orig
+
+# macOS
+.DS_Store
