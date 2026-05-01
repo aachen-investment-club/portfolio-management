@@ -16,5 +16,5 @@ phases:
       - docker push $ECR_REPO_URI:$IMAGE_TAG
 artifacts:
   files:
-    - config/appspec.yml
+    - appspec.yml
     - scripts/*
