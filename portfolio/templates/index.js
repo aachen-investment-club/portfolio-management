@@ -192,10 +192,11 @@ function clearSimulationLine() {
 
 function showSimulationMetrics(metrics) {
   for (const key in metrics) {
-    const el = document.getElementById("kpi-" + key.replace("_", "-"));
+    const el = document.getElementById("kpi-" + key.replace(/_/g, "-"));
     if (!el) continue;
 
     const simLine = el.querySelector(".metric-sim");
+    if (!simLine) continue;
     simLine.innerText = metrics[key];
     simLine.classList.remove("d-none");
   }
