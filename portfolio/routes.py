@@ -252,7 +252,7 @@ def index():
             "beta": f"{Metrics.get_beta(port_returns, bench_returns):.7f}",
             "alpha": f"{Metrics.get_alpha(port_returns, bench_returns):.7f}",
             "total_value": f"${float(nav.iloc[-1]):.1f}",
-            # "value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
+            "value_at_risk": f"${Metrics.get_value_at_risk(port_returns, days_horizon=10, CL=0.95, portfolio_value=float(nav.iloc[-1])):.2f}",
         }
     except PortfolioBaseException as e:
         print(f"Metrics calculation failed: {e}")

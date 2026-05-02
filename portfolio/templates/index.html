@@ -260,6 +260,8 @@
                 $$\\text{CAGR} = \\left(\\left(\\frac{\\text{Ending Value}}{\\text{Beginning Value}}\\right)^{\\frac{1}{\\text{Years}}} - 1\\right) \\times 100$$<br><br>
                 Why is it useful?<br><br>
                 It makes it easy to compare long-term growth, but it does not show volatility by itself. (CFI, 2026)") }}
+                {{ MetricCard("VaR (10d, 95%)", metrics.value_at_risk, id="kpi-value-at-risk",
+    description="Value at Risk (parametric).<br><br>Estimates potential loss at 95% confidence over 10 days.<br><br>Formula: $$R_{VaR} = -(\\mu T + z_{\\alpha} \\sigma \\sqrt{T}) \\times V$$<br><br>Where $\\mu$ = mean daily return, $\\sigma$ = daily std, $T$ = horizon, $z_{\\alpha}$ = left-tail z-score, $V$ = portfolio value.") }}
                 </div>
 
                 </section>
@@ -399,6 +401,12 @@
                                         <a class="link-light text-decoration-none" target="_blank" rel="noopener noreferrer"
                                         href="https://www.investopedia.com/terms/c/cagr.asp">
                                         Investopedia - CAGR
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="link-light text-decoration-none" target="_blank" rel="noopener noreferrer"
+                                        href="https://www.investopedia.com/articles/04/092904.asp">
+                                        Investopedia - Value at Risk
                                         </a>
                                     </li>
                                 </ul>
