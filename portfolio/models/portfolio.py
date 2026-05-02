@@ -188,6 +188,12 @@ class Portfolio():
         prices = self.get_prices_ts()
         positions = self.get_positions_ts()
 
+        # Prevent IndexError if price history is empty (eg initial local setup)
+        if prices.empty:
+                self.current_position = {}
+                self.cash = self.initial_cash
+                return
+
         positions = positions.reindex(prices.index, method="ffill").fillna(0)
         last_date = prices.index[-1]
 
