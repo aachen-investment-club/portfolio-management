@@ -366,7 +366,7 @@ class Market:
 
     FOREX_PAIRS = [
         "EURUSD=X", "GBPUSD=X", "USDJPY=X", "USDCHF=X",
-        "AUDUSD=X", "EURJPY=X"
+        "AUDUSD=X", "EURJPY=X", "USDCNH=X"
             ] # added the popular forex pairs
 
     @classmethod
