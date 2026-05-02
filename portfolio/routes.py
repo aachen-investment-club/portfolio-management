@@ -131,6 +131,7 @@ def health():
 
 
 @bp.route("/update_market")
+@check_auth
 def update_market():
     Market.update_market()
     return {"status": "success"}

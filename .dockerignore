@@ -1,0 +1,14 @@
+venv
+env
+__pycache__
+.pytest_cache
+.git
+*.pyc
+*.pyo
+*.pyd
+.mypy_cache
+data/*
+market.db
+.env
+tests
+test

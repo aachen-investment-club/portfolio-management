@@ -12,7 +12,7 @@ Description=Run market updater
 Type=oneshot
 WorkingDirectory=/home/ec2-user/portfolio-management
 EnvironmentFile=/home/ec2-user/portfolio-management/.env
-ExecStart=/home/ec2-user/portfolio-management/venv/bin/python /home/ec2-user/portfolio-management/market_updater.py
+ExecStart=/home/ec2-user/portfolio-management/venv/bin/python -m portfolio.market_updater
 ```
 
 
