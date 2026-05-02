@@ -1,0 +1,14 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+    volumes:
+      - ./market.db:/app/market.db
+      - ./data:/app/data:ro
+    env_file:
+      - .env
+    restart: unless-stopped
