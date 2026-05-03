@@ -92,8 +92,6 @@ class TestPortfolio(unittest.TestCase):
 
         actual_values = np.array(self.portfolio.get_daily_nav())
 
-        print(expected_values)
-        print(actual_values)
         np.testing.assert_allclose(
             actual_values, expected_values
         )
