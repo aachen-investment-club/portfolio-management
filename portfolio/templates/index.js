@@ -56,6 +56,46 @@ const layout = {
     hovermode: "x unified"
 };
 
+if (Array.isArray(data) && data.length > 0) {
+    
+    // We target the first series in the list (the Portfolio NAV)
+    const series = data[0]; 
+
+    // 2. Ensure x and y actually exist inside that series
+    if (series.x && series.y && series.y.length >= 2) {
+        const xValues = series.x;
+        const yValues = series.y;
+
+        const lastIdx = yValues.length - 1;
+        const prevIdx = lastIdx - 1;
+        
+        const lastPrice = yValues[lastIdx];
+        const prevPrice = yValues[prevIdx];
+        const lastDate = xValues[lastIdx];
+
+        const isUp = lastPrice >= prevPrice;
+        const tickColor = isUp ? '#2ecc71' : '#e74c3c';
+        const tickSymbol = isUp ? 'triangle-up' : 'triangle-down';
+
+        const lastTickTrace = {
+            x: [lastDate],
+            y: [lastPrice],
+            mode: 'markers',
+            name: isUp ? 'Trend Up' : 'Trend Down',
+            marker: {
+                symbol: tickSymbol,
+                color: tickColor,
+                size: 14,
+            },
+            hoverinfo: 'skip',
+            showlegend: false
+        };
+
+        // 3. Push the new trace into the main array
+        data.push(lastTickTrace);
+    }
+}
+
 Plotly.newPlot(mainChart, data, layout, { responsive: true });
 let simulatedTraceIndex = null;
 let simulationActive = false;
@@ -152,10 +192,11 @@ function clearSimulationLine() {
 
 function showSimulationMetrics(metrics) {
   for (const key in metrics) {
-    const el = document.getElementById("kpi-" + key.replace("_", "-"));
+    const el = document.getElementById("kpi-" + key.replace(/_/g, "-"));
     if (!el) continue;
 
     const simLine = el.querySelector(".metric-sim");
+    if (!simLine) continue;
     simLine.innerText = metrics[key];
     simLine.classList.remove("d-none");
   }

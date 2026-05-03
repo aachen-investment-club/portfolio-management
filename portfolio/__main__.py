@@ -25,10 +25,6 @@ from portfolio.routes import bp
 from portfolio.backend import bp_api
 
 
-
-#: calling load_dotenv twice is fine; second call does not overwrite them
-load_dotenv()
-
 app = Flask(__name__)
 
 
@@ -36,12 +32,17 @@ CORS(app)
 
 oauth.init_app(app)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+
+# Cognito configuration via environment variables
+COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "eu-central-1_unKiHP6hh")
+COGNITO_REGION = os.getenv("AWS_REGION", "eu-central-1")
+
 oauth.register(
   name='oidc',
-  authority='https://cognito-idp.eu-central-1.amazonaws.com/eu-central-1_unKiHP6hh',
+  authority=f'https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}',
   client_id=os.getenv("COGNITO_CLIENT_ID"),
   client_secret=os.getenv("AWS_COGNI_CLIENT_SECRET"),
-  server_metadata_url='https://cognito-idp.eu-central-1.amazonaws.com/eu-central-1_unKiHP6hh/.well-known/openid-configuration',
+  server_metadata_url=f'https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}/.well-known/openid-configuration',
   client_kwargs={'scope': 'openid email'}
 )
 
