@@ -1,0 +1,13 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "starting validation..."
+      - IMAGE_TAG="test build"
+  build:
+    commands:
+      - docker build -t local-test-image:latest .
+  post_build:
+    commands:
+      - echo "success"
