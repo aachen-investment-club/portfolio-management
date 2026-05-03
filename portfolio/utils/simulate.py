@@ -2,6 +2,7 @@ import pandas as pd
 from portfolio.models.portfolio import Portfolio
 from portfolio.models.metrics import Metrics
 from portfolio.models.market import Market
+from flask import flash
 
 def simulate(base_data, trades, initial_cash, leverage):
     data = dict(base_data)
@@ -21,7 +22,15 @@ def simulate(base_data, trades, initial_cash, leverage):
                 break
 
         price = float(prices.iloc[-1][price_col])
-        shares = float(t["cash"]) / price
+        cost = float(t["cash"])
+        # Enforce leverage limit
+        if cost > float(leverage):
+            msg = f"DENIED SIMULATION: Trade cost ({cost} USD) exceeds Leverage Limit ({leverage} USD)"
+            print(msg)
+            flash(msg, "danger")
+            continue 
+
+        shares = cost/price
 
         data["transactions"].append({
             "type": "PURCHASE",
@@ -44,6 +53,22 @@ def simulate(base_data, trades, initial_cash, leverage):
     p.import_from_dict(data)
 
     nav = p.get_daily_nav()
+
+    # Empty Portfolio safeguard (prevent fatal IndexError)
+    if nav.empty:
+        print("Simulation is empty. Returning blank metrics.")
+        metrics = {
+            "total_return": "N/A",
+            "cash": f"${p.cash:.1f}",
+            "cagr": "N/A",
+            "volatility": "N/A",
+            "sharpe": "N/A",
+            "max_drawdown": "N/A",
+            "beta": "N/A",
+            "alpha": "N/A",
+            "total_value": "N/A",
+        }
+        return nav, metrics
 
     bench_df = Market.get_us_treasury_bonds()
     bench_df = bench_df[bench_df.index >= nav.index.min()]
