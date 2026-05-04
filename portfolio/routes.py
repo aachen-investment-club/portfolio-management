@@ -257,8 +257,19 @@ def index():
         }
     except PortfolioBaseException as e:
         print(f"Metrics calculation failed: {e}")
-        flash(e.flash_message, "warning")
-        return redirect(url_for('bp.index'))
+        
+        # Fallback metrics so we can test locally without initial crash
+        metrics = {
+            "total_return": "N/A",
+            "cash": f"${selected_portfolio.cash:.1f}", 
+            "cagr": "N/A",
+            "volatility": "N/A",
+            "sharpe": "N/A",
+            "max_drawdown": "N/A",
+            "beta": "N/A",
+            "alpha": "N/A",
+            "total_value": "N/A"
+        }
 
 
     if 'user' in session:
