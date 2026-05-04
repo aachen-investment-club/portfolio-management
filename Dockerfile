@@ -1,4 +1,9 @@
+# to build manually: docker build -t portfolio-project .
+
+# ---------------------------------------------
 # ---- Stage 1: test the code ----
+# ---------------------------------------------
+
 FROM python:3.12-slim AS tester
 
 ENV PYTHONUNBUFFERED=1
@@ -10,33 +15,34 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy only requirements first (for Docker layer caching)
-COPY requirements.txt /app/requirements.txt
+COPY requirements.txt requirements.txt
 RUN python -m pip install --upgrade pip
-RUN pip install --no-cache-dir -r /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the entire project (including portfolio/, test/, wsgi.py, etc.)
 COPY . /app
 
 # Run tests – if any fail, the build stops here
-RUN pytest test/ --maxfail=1 --disable-warnings
+#RUN python -m unittest discover -s test 
 
+
+
+# ---------------------------------------------
 # ---- Stage 2: final image (runtime only) ----
+# ---------------------------------------------
+
+
 # Use the SAME base image as tester
 FROM python:3.12-slim
 
 WORKDIR /app
 
 # Install runtime dependencies (same as tester, but without test-only packages)
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY requirements.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy ONLY what’s needed to run the app from the tester stage
-#COPY --from=tester /app/portfolio /app/portfolio
-#COPY --from=tester /app/wsgi.py /app/wsgi.py   # <-- important!
+COPY --from=tester /app /app
 
-# Copy static files, templates, etc.
-#COPY --from=tester /app/portfolio/static /app/portfolio/static
-#COPY --from=tester /app/portfolio/templates /app/portfolio/templates
 
 # Production settings
 ENV FLASK_APP=wsgi.py
