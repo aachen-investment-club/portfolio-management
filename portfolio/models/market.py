@@ -1,6 +1,7 @@
 from typing import List, Iterable
 from datetime import datetime, timedelta
 
+from click import clear
 import pandas as pd
 import numpy as np
 import requests
@@ -33,6 +34,12 @@ from portfolio.exceptions import (
 DATE = "date"
 TICKER = "ticker"
 PRICE = "price_close"
+
+VALID_YF_INTERVALS = {"1m", "1d"}
+
+MINUTE_GRANULARITY = "1m"
+SEVEN_DAYS = timedelta(days=7)
+
 
 
 class Market:
@@ -615,3 +622,91 @@ class Market:
         )
 
         return pd.read_sql(stmt, engine)
+
+    @classmethod
+    def get_market_data_from_yf(cls, tickers, start_date, end_date, granularity):
+        print(f"Getting data from yfinance from {start_date} until {end_date} with granularity {granularity} ...")
+
+        available_tickers = cls.get_traded_assets()
+
+        if isinstance(tickers, str):
+            tickers = [tickers]
+
+        tickers = list(set(available_tickers) & set(tickers))
+        if not tickers:
+            raise ValueError("Given tickers are not supported.")
+
+        if granularity not in VALID_YF_INTERVALS:
+            raise ValueError(f"Given interval is not supported. Valid options: {VALID_YF_INTERVALS}")
+
+        if isinstance(start_date, str):
+            start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        if isinstance(end_date, str):
+            end_date = datetime.strptime(end_date, "%Y-%m-%d")
+
+        if granularity == MINUTE_GRANULARITY and (end_date - start_date) >= SEVEN_DAYS:
+            raise ValueError("yfinance does not give minute granularity for durations of 7 days or more.")
+
+        try:
+            yfinance_data_output = yf.download(
+                tickers=tickers,
+                start=start_date,
+                end=end_date,
+                interval=granularity,
+                group_by="ticker",
+                progress=False,
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to download data from yfinance: {e}") from e
+
+        if yfinance_data_output is None or yfinance_data_output.empty:
+            raise ValueError("yfinance did not return any data.")
+
+        rows = []
+
+        if isinstance(yfinance_data_output.columns, pd.MultiIndex):
+            if "Close" in yfinance_data_output.columns.get_level_values(0):
+                close = yfinance_data_output["Close"]
+                for t in close.columns:
+                    s = close[t].dropna()
+                    if not s.empty:
+                        rows.append(pd.DataFrame({
+                            "ticker": t,
+                            "date": s.index,
+                            "price_close": s.values,
+                        }))
+            else:
+                for t in tickers:
+                    try:
+                        s = yfinance_data_output[t]["Close"].dropna()
+                    except Exception:
+                        continue
+
+                    if not s.empty:
+                        rows.append(pd.DataFrame({
+                            "ticker": t,
+                            "date": s.index,
+                            "price_close": s.values,
+                        }))
+        else:
+            if "Close" in yfinance_data_output.columns:
+                s = yfinance_data_output["Close"].dropna()
+                if not s.empty:
+                    rows.append(pd.DataFrame({
+                        "ticker": tickers[0],
+                        "date": s.index,
+                        "price_close": s.values,
+                    }))
+
+        if not rows:
+            raise ValueError("No close prices were returned for the requested tickers.")
+
+        df_bars = pd.concat(rows, ignore_index=True)
+
+        df_bars["date"] = pd.to_datetime(df_bars["date"])
+
+        if getattr(df_bars["date"].dt, "tz", None) is not None:
+            df_bars["date"] = df_bars["date"].dt.tz_localize(None)
+
+        print(df_bars.head())
+        return df_bars
