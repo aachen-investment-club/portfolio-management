@@ -38,6 +38,7 @@ PRICE = "price_close"
 VALID_YF_INTERVALS = {"1m", "1d"}
 
 MINUTE_GRANULARITY = "1m"
+DAY_GRANULARITY= "1d"
 SEVEN_DAYS = timedelta(days=7)
 
 
@@ -312,7 +313,7 @@ class Market:
             tickers=tickers,
             start=start_dt,
             end=end_dt_excl,
-            interval="1d",
+            interval=DAY_GRANULARITY,
             group_by="ticker",
             progress=False,
         )
@@ -413,7 +414,7 @@ class Market:
             tickers=cls.FOREX_PAIRS,
             start=start_dt,
             end=end_dt_excl,
-            interval="1d",
+            interval=DAY_GRANULARITY,
             group_by="ticker",
             progress=False,
         )
@@ -624,7 +625,7 @@ class Market:
         return pd.read_sql(stmt, engine)
 
     @classmethod
-    def get_market_data_from_yf(cls, tickers, start_date, end_date, granularity):
+    def get_market_data_from_yf(cls, tickers, start_date, end_date, granularity= DAY_GRANULARITY):
         print(f"Getting data from yfinance from {start_date} until {end_date} with granularity {granularity} ...")
 
         available_tickers = cls.get_traded_assets()
@@ -671,9 +672,9 @@ class Market:
                     s = close[t].dropna()
                     if not s.empty:
                         rows.append(pd.DataFrame({
-                            "ticker": t,
-                            "date": s.index,
-                            "price_close": s.values,
+                            TICKER: t,
+                            DATE: s.index,
+                            PRICE: s.values,
                         }))
             else:
                 for t in tickers:
@@ -684,18 +685,18 @@ class Market:
 
                     if not s.empty:
                         rows.append(pd.DataFrame({
-                            "ticker": t,
-                            "date": s.index,
-                            "price_close": s.values,
+                            TICKER: t,
+                            DATE: s.index,
+                            PRICE: s.values,
                         }))
         else:
             if "Close" in yfinance_data_output.columns:
                 s = yfinance_data_output["Close"].dropna()
                 if not s.empty:
                     rows.append(pd.DataFrame({
-                        "ticker": tickers[0],
-                        "date": s.index,
-                        "price_close": s.values,
+                        TICKER: tickers[0],
+                        DATE: s.index,
+                        PRICE: s.values,
                     }))
 
         if not rows:
@@ -703,10 +704,10 @@ class Market:
 
         df_bars = pd.concat(rows, ignore_index=True)
 
-        df_bars["date"] = pd.to_datetime(df_bars["date"])
+        df_bars[DATE] = pd.to_datetime(df_bars[DATE])
 
-        if getattr(df_bars["date"].dt, "tz", None) is not None:
-            df_bars["date"] = df_bars["date"].dt.tz_localize(None)
+        if getattr(df_bars[DATE].dt, "tz", None) is not None:
+            df_bars[DATE] = df_bars[DATE].dt.tz_localize(None)
 
         print(df_bars.head())
         return df_bars

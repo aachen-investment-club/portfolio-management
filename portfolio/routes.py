@@ -142,6 +142,9 @@ def update_market():
 
 @bp.route("/")
 def index():
+
+
+
     initial_cash = request.args.get("cash", default=DEFAULT_INITIAL_CASH, type=float)
     leverage_limit = request.args.get("leverage", default=DEFAULT_LEVERAGE, type=float)
 
