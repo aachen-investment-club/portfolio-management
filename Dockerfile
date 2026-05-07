@@ -30,13 +30,9 @@ WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Copy ONLY what’s needed to run the app from the tester stage
-#COPY --from=tester /app/portfolio /app/portfolio
-#COPY --from=tester /app/wsgi.py /app/wsgi.py   # <-- important!
-
-# Copy static files, templates, etc.
-#COPY --from=tester /app/portfolio/static /app/portfolio/static
-#COPY --from=tester /app/portfolio/templates /app/portfolio/templates
+# Copy only the application runtime files from the tester stage (exclude tests, dev files)
+COPY --from=tester /app/portfolio /app/portfolio
+COPY --from=tester /app/wsgi.py /app/wsgi.py
 
 # Production settings
 ENV FLASK_APP=wsgi.py

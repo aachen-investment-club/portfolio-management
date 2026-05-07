@@ -162,6 +162,28 @@ aws iam add-role-to-instance-profile \
 10. Select `EC2PortfolioInstanceRole` from dropdown
 11. Click **Save**
 
+### 2.4 CodePipeline Service Role
+
+**CLI:**
+```bash
+aws iam create-role \
+  --role-name CodePipelinePortfolioRole \
+  --assume-role-policy-document file://scripts/codepipeline-role.json
+
+aws iam attach-role-policy \
+  --role-name CodePipelinePortfolioRole \
+  --policy-arn arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess
+```
+
+**Console:**
+1. Click **Create role** again
+2. **Trusted entity type**: Select **AWS service**
+3. **Use case**: Select **CodePipeline** from the dropdown
+4. Add permissions:
+   - `AWSCodePipeline_FullAccess`
+5. Role name: `CodePipelinePortfolioRole`
+6. Click **Create role**
+
 ---
 
 ## Step 3: Create CodeBuild Project
@@ -173,7 +195,7 @@ aws codebuild create-project \
   --name portfolio-build \
   --source type=GITHUB,location=https://github.com/<owner>/<repo>.git,buildspec=buildspec.yml \
   --artifacts type=CODEPIPELINE \
-  --environment type=LINUX_CONTAINER,image=aws/codebuild/amazonlinux2-x86_64-standard:5.0,computeType=BUILD_GENERAL1_SMALL,privilegedMode=true \
+  --environment "type=LINUX_CONTAINER,image=aws/codebuild/amazonlinux2-x86_64-standard:5.0,computeType=BUILD_GENERAL1_SMALL,privilegedMode=true,environmentVariables=[{name=ECR_REPO_URI,value=<your-ecr-repo-uri>,type=PLAINTEXT}]" \
   --service-role arn:aws:iam::<account-id>:role/CodeBuildPortfolioRole \
   --region eu-central-1
 ```
@@ -249,15 +271,56 @@ aws deploy create-deployment-group \
 
 ---
 
-## Step 5: Create CodePipeline
+## Step 5: Create S3 Artifact Bucket
+
+Before creating the pipeline, you need an S3 bucket for storing artifacts.
+
+**CLI:**
+```bash
+aws s3api create-bucket \
+  --bucket codepipeline-artifacts-<your-account-id> \
+  --region eu-central-1 \
+  --create-bucket-configuration LocationConstraint=eu-central-1
+
+aws s3api put-bucket-versioning \
+  --bucket codepipeline-artifacts-<your-account-id> \
+  --versioning-configuration Status=Enabled \
+  --region eu-central-1
+```
+
+**Console:**
+1. Go to AWS Console → Search "S3" → Click **S3**
+2. Click **Create bucket**
+3. **Bucket name**: `codepipeline-artifacts-<your-account-id>`
+4. **Region**: Select `eu-central-1`
+5. Disable "Block all public access" (default is fine)
+6. Enable **Bucket versioning** (recommended for artifact integrity)
+7. Click **Create bucket**
+
+---
+
+## Step 6: Create CodePipeline
 
 ### Option A: AWS CLI
 
+The pipeline definition is in `scripts/pipeline-template.json`. Use the provided automation script to generate the final `pipeline.json` and create the pipeline:
+
+```bash
+bash scripts/create-codepipeline.sh
+```
+
+Or manually:
+
+1. Ensure you have filled in `scripts/cicd.env` and `scripts/cicd.secrets`
+2. Generate `pipeline.json` by replacing placeholders in `pipeline-template.json` with your values (account ID, GitHub owner/repo/branch/OAuth token, ECR repository URI)
+3. Run:
 ```bash
 aws codepipeline create-pipeline \
   --cli-input-json file://scripts/pipeline.json \
   --region eu-central-1
 ```
+
+**Important:** The pipeline uses the service role `CodePipelinePortfolioRole` (created in Step 2.4). The pipeline's role ARN must be `arn:aws:iam::<account-id>:role/CodePipelinePortfolioRole`.
 
 ### Option B: AWS Console
 
@@ -265,7 +328,7 @@ aws codepipeline create-pipeline \
 2. Click **Create pipeline**
 3. **Pipeline settings**:
    - **Pipeline name**: `portfolio-pipeline`
-   - **Service role**: Select **New service role**
+   - **Service role**: Select **New service role** (it will create `codepipeline-<pipeline-name>-service-role` automatically)
    - **Execution mode**: Select **Superseded**
    - **Region**: Verify it matches your other resources (e.g., `eu-central-1`)
 4. **Source Stage**:
@@ -290,15 +353,15 @@ aws codepipeline create-pipeline \
 
 ---
 
-## Step 6: Prepare EC2 Instance
+## Step 7: Prepare EC2 Instance
 
-### 6.1 SSH into Your EC2 Instance
+### 7.1 SSH into Your EC2 Instance
 
 ```bash
 ssh -i your-key.pem ec2-user@<your-ec2-public-ip>
 ```
 
-### 6.2 Install CodeDeploy Agent
+### 7.2 Install CodeDeploy Agent
 
 ```bash
 sudo yum update -y
@@ -312,7 +375,7 @@ sudo systemctl status codedeploy-agent
 
 You should see: `active (running)`
 
-### 6.3 Install Docker (if not already installed)
+### 7.3 Install Docker (if not already installed)
 
 ```bash
 sudo yum install -y docker
@@ -321,16 +384,18 @@ sudo systemctl enable docker
 sudo usermod -aG docker ec2-user
 ```
 
-### 6.4 Create Data Directory for Database
+### 7.4 Create Data Directory for Database
 
 ```bash
 sudo mkdir -p /data
 sudo chown ec2-user:ec2-user /data
 ```
 
-### 6.5 Set Environment Variable
+### 7.5 Set Environment Variable (Optional for manual deployments)
 
-Add to `~/.bashrc` so it persists:
+For manual runs of `deploy.sh` (outside of CodePipeline), you need to set `ECR_REPO_URI` in the environment. For pipeline-driven deployments, this is passed automatically.
+
+To set for manual use, add to `~/.bashrc`:
 
 ```bash
 echo 'export ECR_REPO_URI=<your-account-id>.dkr.ecr.eu-central-1.amazonaws.com/portfolio-management' >> ~/.bashrc
@@ -339,9 +404,9 @@ source ~/.bashrc
 
 ---
 
-## Step 7: Configure Environment Variables
+## Step 8: Configure Environment Variables
 
-### 7.1 On EC2 Instance
+### 8.1 On EC2 Instance
 
 Create `/home/ec2-user/portfolio-management/.env`:
 
@@ -362,7 +427,7 @@ APCA_API_SECRET_KEY=your-alpaca-secret
 DB_PATH=sqlite:////data/market.db
 ```
 
-### 7.2 For Deploy Script
+### 8.2 For Deploy Script
 
 Set before running deploy or add to CI/CD environment:
 
@@ -373,7 +438,7 @@ export AWS_REGION=eu-central-1
 
 ---
 
-## Step 8: Automated Setup (Alternative)
+## Step 9: Automated Setup (Alternative)
 
 Instead of manual console/CLI setup, you can use the provided automation scripts in the `scripts/` directory:
 
@@ -385,9 +450,9 @@ See [`CHANGELOG.md`](../CHANGELOG.md) for details on the automation scripts.
 
 ---
 
-## Step 9: Test the Pipeline
+## Step 10: Test the Pipeline
 
-### 9.1 Trigger Manually
+### 10.1 Trigger Manually
 
 **CLI:**
 ```bash
@@ -401,7 +466,7 @@ aws codepipeline start-pipeline-execution \
 2. Click **Release change**
 3. Watch the pipeline execute
 
-### 9.2 Automatic Trigger
+### 10.2 Automatic Trigger
 
 Push a commit to your GitHub repository:
 

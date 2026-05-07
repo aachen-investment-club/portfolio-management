@@ -23,12 +23,12 @@ aws iam create-role \
 aws iam attach-role-policy \
   --role-name CodeBuildPortfolioRole \
   --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser \
-  --region "${AWS_REGION}"
+  --region "${AWS_REGION}" || true
 
 aws iam attach-role-policy \
   --role-name CodeBuildPortfolioRole \
   --policy-arn arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess \
-  --region "${AWS_REGION}"
+  --region "${AWS_REGION}" || true
 
 echo "CodeBuild service role created."
 
@@ -45,12 +45,12 @@ aws iam create-role \
 aws iam attach-role-policy \
   --role-name CodeDeployPortfolioRole \
   --policy-arn arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole \
-  --region "${AWS_REGION}"
+  --region "${AWS_REGION}" || true
 
 aws iam attach-role-policy \
   --role-name CodeDeployPortfolioRole \
   --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly \
-  --region "${AWS_REGION}"
+  --region "${AWS_REGION}" || true
 
 echo "CodeDeploy service role created."
 
@@ -68,7 +68,7 @@ aws iam put-role-policy \
   --role-name EC2PortfolioInstanceRole \
   --policy-name EC2PortfolioECRPolicy \
   --policy-document file://"${SCRIPT_DIR}/ec2-instance-policy.json" \
-  --region "${AWS_REGION}"
+  --region "${AWS_REGION}" || true
 
 # Create instance profile for EC2
 aws iam create-instance-profile \
@@ -81,5 +81,22 @@ aws iam add-role-to-instance-profile \
   --region "${AWS_REGION}" || echo "Role already attached to instance profile"
 
 echo "EC2 instance role created."
+
+# -------------------------------------------
+# 4. Create CodePipeline Service Role
+# -------------------------------------------
+echo "Creating CodePipeline service role..."
+
+aws iam create-role \
+  --role-name CodePipelinePortfolioRole \
+  --assume-role-policy-document file://"${SCRIPT_DIR}/codepipeline-role.json" \
+  --region "${AWS_REGION}" || echo "CodePipelinePortfolioRole already exists"
+
+aws iam attach-role-policy \
+  --role-name CodePipelinePortfolioRole \
+  --policy-arn arn:aws:iam::aws:policy/AWSCodePipeline_FullAccess \
+  --region "${AWS_REGION}" || true
+
+echo "CodePipeline service role created."
 
 echo "=== IAM Roles Creation Complete ==="

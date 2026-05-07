@@ -48,11 +48,44 @@ All notable changes to this project will be documented in this file.
 
 #### Pipeline Template
 - `pipeline-template.json` - Template for CodePipeline with placeholders for:
-  - AWS Account ID
-  - GitHub owner, repo, branch, and OAuth token
+  - AWS Account ID, GitHub owner, repo, branch, OAuth token, and ECR_REPO_URI
+  - Includes Deploy stage environment variable configuration for ECR_REPO_URI
+
+#### Additional IAM Role
+- `codepipeline-role.json` - Trust policy for CodePipeline service role (added to correct earlier architecture error where CodeBuild role was incorrectly used)
 
 ### Modified
 - `.gitignore` - Added exclusions for `scripts/cicd.secrets` and `scripts/pipeline.json`
+
+### Fixed Issues (2026-05-07)
+- **Dockerfile**:
+  - Fixed critical bug where application code COPY lines were commented out, resulting in empty production image. Now copies `portfolio/` and `wsgi.py` from tester stage.
+  - Optimized final image to exclude test files and development artifacts by copying only necessary runtime files.
+- **requirements.txt**: Fixed file encoding from UTF-16 with CRLF to ASCII with LF line endings, which would have caused `pip install` to fail.
+- **.dockerignore**: Removed `tests` and `test` exclusions to ensure test files are included in the build context for the tester stage, while still excluding sensitive files (`.env`, `data/`, `market.db`) and dev artifacts.
+- **deploy.sh**:
+  - Now requires `.env` file to be present; exits with error if missing, preventing silent failures.
+  - Added validation to ensure `DB_PATH` is defined in the `.env` file (critical for persistent database).
+- **buildspec.yml**:
+  - Added missing `--region $AWS_REGION` to `aws ecr get-login-password` command
+  - Uncommented and fixed `COMMIT_HASH` extraction from `CODEBUILD_RESOLVED_SOURCE_VERSION`
+  - Changed `IMAGE_TAG` parameter expansion from `${COMMIT_HASH:=latest}` (modifies COMMIT_HASH) to `${COMMIT_HASH:-latest}` (does not modify)
+- **deploy.sh**:
+  - Added automatic detection and loading of `.env` file via `--env-file` Docker flag (checks `/home/ec2-user/portfolio-management/.env` for production, `./.env` for local testing)
+  - Requires `.env` file to be present; exits with error if not found
+  - Removed explicit `DB_PATH` override to respect the value defined in `.env` (ensures correct production path `sqlite:////data/market.db` must be set in .env)
+  - Ensures all application environment variables (FLASK_SECRET_KEY, COGNITO_* etc.) are passed into container
+- **create-codebuild-project.sh**: Added `ECR_REPO_URI` as an environment variable in the CodeBuild project configuration so buildspec can access it.
+- **pipeline-template.json**:
+  - Changed pipeline `roleArn` from `CodeBuildPortfolioRole` to `CodePipelinePortfolioRole` (correct IAM architecture; CodePipeline service needs its own role, not CodeBuild's)
+  - Added `EnvironmentVariables` configuration to Deploy stage to pass `ECR_REPO_URI` to CodeDeploy hooks
+- **create-codepipeline.sh**:
+  - Added computation of `ECR_REPO_URI` if not explicitly set
+  - Added creation of S3 artifact bucket with versioning enabled (required for pipeline artifacts)
+- **create-iam-roles.sh**:
+  - Added creation of `CodePipelinePortfolioRole` with `AWSCodePipeline_FullAccess` policy attached
+  - Made policy attachments idempotent by adding `|| true` to `aws iam attach-role-policy` and `aws iam put-role-policy` commands to avoid failures on re-run
+- **cicd.env**: Added `CODEPIPELINE_ROLE_NAME` variable
 
 ### Disclaimer / Prerequisites
 

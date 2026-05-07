@@ -1,7 +1,7 @@
 {
   "pipeline": {
     "name": "portfolio-pipeline",
-    "roleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/CodeBuildPortfolioRole",
+    "roleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/CodePipelinePortfolioRole",
     "artifactStore": {
       "type": "S3",
       "location": "codepipeline-artifacts-<AWS_ACCOUNT_ID>"
@@ -63,7 +63,14 @@
             "inputArtifacts": [{ "name": "BuildArtifact" }],
             "configuration": {
               "ApplicationName": "portfolio-app",
-              "DeploymentGroupName": "portfolio-prod"
+              "DeploymentGroupName": "portfolio-prod",
+              "EnvironmentVariables": [
+                {
+                  "name": "ECR_REPO_URI",
+                  "value": "<ECR_REPO_URI>",
+                  "type": "PLAINTEXT"
+                }
+              ]
             },
             "runOrder": 1
           }

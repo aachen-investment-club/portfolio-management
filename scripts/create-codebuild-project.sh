@@ -31,7 +31,7 @@ aws codebuild create-project \
   --name "${CODEBUILD_PROJECT_NAME}" \
   --source "type=GITHUB,location=https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}.git,buildspec=buildspec.yml" \
   --artifacts type=CODEPIPELINE \
-  --environment "type=LINUX_CONTAINER,image=aws/codebuild/amazonlinux2-x86_64-standard:5.0,computeType=BUILD_GENERAL1_SMALL,privilegedMode=true" \
+  --environment "type=LINUX_CONTAINER,image=aws/codebuild/amazonlinux2-x86_64-standard:5.0,computeType=BUILD_GENERAL1_SMALL,privilegedMode=true,environmentVariables=[{name=ECR_REPO_URI,value=${ECR_REPO_URI},type=PLAINTEXT}]" \
   --service-role "arn:aws:iam::${AWS_ACCOUNT_ID}:role/CodeBuildPortfolioRole" \
   --region "${AWS_REGION}"
 
