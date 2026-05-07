@@ -1,0 +1,74 @@
+{
+  "pipeline": {
+    "name": "portfolio-pipeline",
+    "roleArn": "arn:aws:iam::<AWS_ACCOUNT_ID>:role/CodeBuildPortfolioRole",
+    "artifactStore": {
+      "type": "S3",
+      "location": "codepipeline-artifacts-<AWS_ACCOUNT_ID>"
+    },
+    "stages": [
+      {
+        "name": "Source",
+        "actions": [
+          {
+            "name": "GitHubSource",
+            "actionTypeId": {
+              "category": "Source",
+              "owner": "ThirdParty",
+              "provider": "GitHub",
+              "version": "1"
+            },
+            "outputArtifacts": [{ "name": "SourceArtifact" }],
+            "configuration": {
+              "Owner": "<GITHUB_OWNER>",
+              "Repo": "<GITHUB_REPO>",
+              "Branch": "<GITHUB_BRANCH>",
+              "OAuthToken": "<GITHUB_OAUTH_TOKEN>"
+            },
+            "runOrder": 1
+          }
+        ]
+      },
+      {
+        "name": "Build",
+        "actions": [
+          {
+            "name": "CodeBuild",
+            "actionTypeId": {
+              "category": "Build",
+              "owner": "AWS",
+              "provider": "CodeBuild",
+              "version": "1"
+            },
+            "inputArtifacts": [{ "name": "SourceArtifact" }],
+            "outputArtifacts": [{ "name": "BuildArtifact" }],
+            "configuration": {
+              "ProjectName": "portfolio-build"
+            },
+            "runOrder": 1
+          }
+        ]
+      },
+      {
+        "name": "Deploy",
+        "actions": [
+          {
+            "name": "CodeDeploy",
+            "actionTypeId": {
+              "category": "Deploy",
+              "owner": "AWS",
+              "provider": "CodeDeploy",
+              "version": "1"
+            },
+            "inputArtifacts": [{ "name": "BuildArtifact" }],
+            "configuration": {
+              "ApplicationName": "portfolio-app",
+              "DeploymentGroupName": "portfolio-prod"
+            },
+            "runOrder": 1
+          }
+        ]
+      }
+    ]
+  }
+}
