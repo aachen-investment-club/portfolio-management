@@ -43,13 +43,41 @@ docker pull $ECR_REPO_URI:latest
 docker stop $CONTAINER_NAME || true
 docker rm $CONTAINER_NAME || true
 
+# Determine .env file location
+# Priority: 1) /home/ec2-user/portfolio-management/.env (production), 2) ./.env (local testing)
+ENV_FILE=""
+if [ -f "/home/ec2-user/portfolio-management/.env" ]; then
+  ENV_FILE="/home/ec2-user/portfolio-management/.env"
+elif [ -f ".env" ]; then
+  ENV_FILE=".env"
+fi
+
+# Require .env file to be present
+if [ -z "$ENV_FILE" ]; then
+  echo "ERROR: .env file not found."
+  echo "Please create /home/ec2-user/portfolio-management/.env with required environment variables."
+  echo "See docs/ci_cd_pipeline_setup.md for the list of required variables."
+  exit 1
+fi
+
+echo "Using environment file: $ENV_FILE"
+
+# Validate that DB_PATH is defined in .env (critical for persistent database)
+if ! grep -q '^DB_PATH=' "$ENV_FILE"; then
+  echo "ERROR: $ENV_FILE must contain DB_PATH setting (e.g., DB_PATH=sqlite:////data/market.db)"
+  exit 1
+fi
+
+# Build docker run options
+DOCKER_RUN_OPTS="--env-file $ENV_FILE"
+
 # Run new container with host-database connection
 # Database is stored on EC2 host at /data/market.db (persists across container restarts)
 docker run -d \
   --name $CONTAINER_NAME \
   --add-host=$DB_HOST_ALIAS:$EC2_IP \
   -e DB_HOST=$DB_HOST_ALIAS \
-  -e DB_PATH="${DB_PATH:-sqlite:////data/market.db}" \
+  $DOCKER_RUN_OPTS \
   -v $DB_HOST_DIR:/data \
   -p $HOST_PORT:$CONTAINER_PORT \
   $ECR_REPO_URI:latest
