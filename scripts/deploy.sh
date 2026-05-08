@@ -5,7 +5,7 @@ set -e
 # Usage: ./deploy.sh [container_name] [host_port] [container_port] [db_alias]
 # Note: When run via CodeDeploy appspec.yml, these are passed as environment variables
 CONTAINER_NAME="${CONTAINER_NAME:-portfolio-app}"
-HOST_PORT="${HOST_PORT:-80}"
+HOST_PORT="${HOST_PORT:-5000}"
 CONTAINER_PORT="${CONTAINER_PORT:-5000}"
 DB_HOST_ALIAS="${DB_HOST_ALIAS:-db-host}"
 
