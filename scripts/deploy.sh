@@ -11,13 +11,38 @@ DB_HOST_ALIAS="${DB_HOST_ALIAS:-db-host}"
 
 # ========== AWS Configuration ==========
 # Set via environment variables or use defaults
-ECR_REPO_URI="${ECR_REPO_URI:-<your-account-id>.dkr.ecr.<region>.amazonaws.com/<your-repo-name>}"
+
+
+ECR_REPO_URI=$(aws ssm get-parameter --name "ECR_REPO_URI_PORTFOLIO_DEVELOPER" --query "Parameter.Value" --output text --region eu-central-1)
 REGION="${AWS_REGION:-eu-central-1}"
 
-# Validate ECR_REPO_URI is set
-if [[ "$ECR_REPO_URI" == *"<your-account-id>"* ]]; then
-    echo "Error: ECR_REPO_URI must be set via environment variable"
-    echo "Usage: ECR_REPO_URI=123456789.dkr.ecr.eu-central-1.amazonaws.com/my-repo ./deploy.sh"
+if ! command -v aws &> /dev/null; then
+    echo "ERROR: AWS CLI not found. Is it installed on the EC2 instance?"
+    exit 1
+fi
+
+# Fetch from SSM with explicit error logging
+echo "Attempting to fetch ECR_REPO_URI from Parameter Store..."
+SSM_VALUE=$(aws ssm get-parameter --name "/portfolio/ECR_REPO_URI_PORTFOLIO_DEVELOPER" --query "Parameter.Value" --output text --region eu-central-1 2>&1)
+
+if [[ $? -eq 0 ]]; then
+    ECR_REPO_URI=$SSM_VALUE
+    echo "Successfully fetched ECR_REPO_URI: $ECR_REPO_URI"
+else
+    echo "ERROR fetching from SSM: $SSM_VALUE"
+    # If this fails, the error message from AWS will be printed here
+    exit 1
+fi
+
+
+if [ -z "$ECR_REPO_URI" ]; then
+    echo "Fetching ECR_REPO_URI from AWS Parameter Store..."
+    ECR_REPO_URI=$(aws ssm get-parameter --name "/portfolio/ECR_REPO_URI_PORTFOLIO_DEVELOPER" --query "Parameter.Value" --output text --region eu-central-1)
+fi
+
+# Validate ECR_REPO_URI is now set
+if [ -z "$ECR_REPO_URI" ] || [[ "$ECR_REPO_URI" == *"<your-account-id>"* ]]; then
+    echo "Error: ECR_REPO_URI could not be retrieved."
     exit 1
 fi
 
@@ -43,13 +68,41 @@ docker pull $ECR_REPO_URI:latest
 docker stop $CONTAINER_NAME || true
 docker rm $CONTAINER_NAME || true
 
+# Determine .env file location
+# Priority: 1) /home/ec2-user/portfolio-management/.env (production), 2) ./.env (local testing)
+ENV_FILE=""
+if [ -f "/home/ec2-user/portfolio-management/.env" ]; then
+  ENV_FILE="/home/ec2-user/portfolio-management/.env"
+elif [ -f ".env" ]; then
+  ENV_FILE=".env"
+fi
+
+# Require .env file to be present
+if [ -z "$ENV_FILE" ]; then
+  echo "ERROR: .env file not found."
+  echo "Please create /home/ec2-user/portfolio-management/.env with required environment variables."
+  echo "See docs/ci_cd_pipeline_setup.md for the list of required variables."
+  exit 1
+fi
+
+echo "Using environment file: $ENV_FILE"
+
+# Validate that DB_PATH is defined in .env (critical for persistent database)
+if ! grep -q '^DB_PATH=' "$ENV_FILE"; then
+  echo "ERROR: $ENV_FILE must contain DB_PATH setting (e.g., DB_PATH=sqlite:////data/market.db)"
+  exit 1
+fi
+
+# Build docker run options
+DOCKER_RUN_OPTS="--env-file $ENV_FILE"
+
 # Run new container with host-database connection
 # Database is stored on EC2 host at /data/market.db (persists across container restarts)
 docker run -d \
   --name $CONTAINER_NAME \
   --add-host=$DB_HOST_ALIAS:$EC2_IP \
   -e DB_HOST=$DB_HOST_ALIAS \
-  -e DB_PATH="${DB_PATH:-sqlite:////data/market.db}" \
+  $DOCKER_RUN_OPTS \
   -v $DB_HOST_DIR:/data \
   -p $HOST_PORT:$CONTAINER_PORT \
   $ECR_REPO_URI:latest

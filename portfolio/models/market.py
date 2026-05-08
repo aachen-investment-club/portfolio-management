@@ -1,6 +1,7 @@
 from typing import List, Iterable
 from datetime import datetime, timedelta
 
+from click import clear
 import pandas as pd
 import numpy as np
 import requests
@@ -17,7 +18,7 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
 from portfolio.utils.aws_config import engine
-from portfolio.schemas.market import MarketDB, TickerMeta
+from portfolio.schemas.market import MarketDB, TickerMeta, ForexDB
 from alpaca.trading import GetCalendarRequest
 from alpaca.trading.client import TradingClient
 from alpaca.data.requests import StockBarsRequest
@@ -33,6 +34,13 @@ from portfolio.exceptions import (
 DATE = "date"
 TICKER = "ticker"
 PRICE = "price_close"
+
+VALID_YF_INTERVALS = {"1m", "1d"}
+
+MINUTE_GRANULARITY = "1m"
+DAY_GRANULARITY= "1d"
+SEVEN_DAYS = timedelta(days=7)
+
 
 
 class Market:
@@ -267,9 +275,11 @@ class Market:
             latest_db_date = session.query(func.max(MarketDB.date)).scalar().date()
             return latest_db_date
 
-
-
-    
+    @classmethod
+    def get_latest_forex_date_in_db(cls):
+        with Session(engine) as session:
+            result = session.query(func.max(ForexDB.date)).scalar()
+            return result.date() if result else None  
 
     @classmethod
     def update_market(cls,  batch_size: int = 300):
@@ -303,7 +313,7 @@ class Market:
             tickers=tickers,
             start=start_dt,
             end=end_dt_excl,
-            interval="1d",
+            interval=DAY_GRANULARITY,
             group_by="ticker",
             progress=False,
         )
@@ -362,7 +372,106 @@ class Market:
         print("done updating market")
 
 
+    FOREX_PAIRS = [
+        "EURUSD=X", "GBPUSD=X", "USDJPY=X", "USDCHF=X",
+        "AUDUSD=X", "EURJPY=X", "USDCNH=X"
+            ] # added the popular forex pairs
 
+    @classmethod
+    def update_forex(cls,  batch_size: int = 300):
+        print("started Forex update")
+
+        #trading_client = TradingClient(
+            #api_key=os.getenv("APCA_API_KEY_ID"),
+            #secret_key=os.getenv("APCA_API_SECRET_KEY")
+        #)
+
+        today = datetime.now().date()
+        yesterday = today - timedelta(days=1)
+
+        #calendar_req = GetCalendarRequest(start=today - timedelta(days=10), end=yesterday)
+        #calendar = trading_client.get_calendar(calendar_req)
+        #if not calendar:
+            #print("no calendar data returned; aborting update")
+            #return
+
+        #target_end_date = calendar[-1].date  
+
+        latest_db_date = cls.get_latest_forex_date_in_db()
+        
+        
+        if latest_db_date and latest_db_date >= yesterday:
+            print("forex already up to date")
+            return
+
+        start_dt = pd.to_datetime(
+            (latest_db_date + timedelta(days=1)) if latest_db_date
+            else (yesterday - timedelta(days=365))   # bootstrap: 1 year of history
+        )
+        end_dt_excl = pd.to_datetime(yesterday) + pd.Timedelta(days=1)
+
+        yfinance_data_output = yf.download(
+            tickers=cls.FOREX_PAIRS,
+            start=start_dt,
+            end=end_dt_excl,
+            interval=DAY_GRANULARITY,
+            group_by="ticker",
+            progress=False,
+        )
+
+        if yfinance_data_output is None or yfinance_data_output.empty:
+            print("yfinance did not return any forex data")
+            return
+
+        rows = []
+
+        if isinstance(yfinance_data_output.columns, pd.MultiIndex):
+            if "Close" in yfinance_data_output.columns.get_level_values(0):
+                close = yfinance_data_output["Close"]
+                for t in close.columns:
+                    s = close[t].dropna()
+                    if not s.empty:
+                        rows.append(pd.DataFrame({"ticker": t, "date": s.index, "price_close": s.values}))
+            else:
+                for t in cls.FOREX_PAIRS:
+                    try:
+                        s = yfinance_data_output[t]["Close"].dropna()
+                    except Exception:
+                        continue
+                    if not s.empty:
+                        rows.append(pd.DataFrame({"ticker": t, "date": s.index, "price_close": s.values}))
+        else:
+            if "Close" in yfinance_data_output.columns:
+                s = yfinance_data_output["Close"].dropna()
+                if not s.empty:
+                    rows.append(pd.DataFrame({"ticker": cls.FOREX_PAIRS[0], "date": s.index, "price_close": s.values}))
+
+        if not rows:
+            print("no forex rows to insert")
+            return
+
+        df_bars = pd.concat(rows, ignore_index=True)
+        df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None).dt.floor("D")
+        df_bars = df_bars[
+            (df_bars["date"] >= start_dt) &
+            (df_bars["date"] <= pd.to_datetime(yesterday))
+        ]
+
+        records = df_bars.to_dict(orient="records")
+        inserted = 0
+        with Session(engine) as session:
+            for i in range(0, len(records), batch_size):
+                batch = records[i:i + batch_size]
+                stmt = (
+                    insert(ForexDB)
+                    .values(batch)
+                    .on_conflict_do_nothing(index_elements=["ticker", "date"])
+                )
+                result = session.execute(stmt)
+                inserted += result.rowcount or 0
+            session.commit()
+
+        print(f"forex update done: {inserted} new rows inserted")
 
 
 
@@ -514,3 +623,91 @@ class Market:
         )
 
         return pd.read_sql(stmt, engine)
+
+    @classmethod
+    def get_market_data_from_yf(cls, tickers, start_date, end_date, granularity= DAY_GRANULARITY):
+        print(f"Getting data from yfinance from {start_date} until {end_date} with granularity {granularity} ...")
+
+        available_tickers = cls.get_traded_assets()
+
+        if isinstance(tickers, str):
+            tickers = [tickers]
+
+        tickers = list(set(available_tickers) & set(tickers))
+        if not tickers:
+            raise ValueError("Given tickers are not supported.")
+
+        if granularity not in VALID_YF_INTERVALS:
+            raise ValueError(f"Given interval is not supported. Valid options: {VALID_YF_INTERVALS}")
+
+        if isinstance(start_date, str):
+            start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        if isinstance(end_date, str):
+            end_date = datetime.strptime(end_date, "%Y-%m-%d")
+
+        if granularity == MINUTE_GRANULARITY and (end_date - start_date) >= SEVEN_DAYS:
+            raise ValueError("yfinance does not give minute granularity for durations of 7 days or more.")
+
+        try:
+            yfinance_data_output = yf.download(
+                tickers=tickers,
+                start=start_date,
+                end=end_date,
+                interval=granularity,
+                group_by="ticker",
+                progress=False,
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to download data from yfinance: {e}") from e
+
+        if yfinance_data_output is None or yfinance_data_output.empty:
+            raise ValueError("yfinance did not return any data.")
+
+        rows = []
+
+        if isinstance(yfinance_data_output.columns, pd.MultiIndex):
+            if "Close" in yfinance_data_output.columns.get_level_values(0):
+                close = yfinance_data_output["Close"]
+                for t in close.columns:
+                    s = close[t].dropna()
+                    if not s.empty:
+                        rows.append(pd.DataFrame({
+                            TICKER: t,
+                            DATE: s.index,
+                            PRICE: s.values,
+                        }))
+            else:
+                for t in tickers:
+                    try:
+                        s = yfinance_data_output[t]["Close"].dropna()
+                    except Exception:
+                        continue
+
+                    if not s.empty:
+                        rows.append(pd.DataFrame({
+                            TICKER: t,
+                            DATE: s.index,
+                            PRICE: s.values,
+                        }))
+        else:
+            if "Close" in yfinance_data_output.columns:
+                s = yfinance_data_output["Close"].dropna()
+                if not s.empty:
+                    rows.append(pd.DataFrame({
+                        TICKER: tickers[0],
+                        DATE: s.index,
+                        PRICE: s.values,
+                    }))
+
+        if not rows:
+            raise ValueError("No close prices were returned for the requested tickers.")
+
+        df_bars = pd.concat(rows, ignore_index=True)
+
+        df_bars[DATE] = pd.to_datetime(df_bars[DATE])
+
+        if getattr(df_bars[DATE].dt, "tz", None) is not None:
+            df_bars[DATE] = df_bars[DATE].dt.tz_localize(None)
+
+        print(df_bars.head())
+        return df_bars
