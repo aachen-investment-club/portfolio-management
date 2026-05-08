@@ -13,6 +13,8 @@ DB_HOST_ALIAS="${DB_HOST_ALIAS:-db-host}"
 # Set via environment variables or use defaults
 
 
+
+
 ECR_REPO_URI=$(aws ssm get-parameter --name "ECR_REPO_URI_PORTFOLIO_DEVELOPER" --query "Parameter.Value" --output text --region eu-central-1)
 REGION="${AWS_REGION:-eu-central-1}"
 
