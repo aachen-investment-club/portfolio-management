@@ -8,7 +8,7 @@ hooks:
     - location: scripts/deploy.sh
       timeout: 300
       runas: root          # Root has docker permissions and can write to system
-      environment:
+      env:
         ECR_REPO_URI: 058264123925.dkr.ecr.eu-central-1.amazonaws.com/feature/cidc_pipeline 
         CONTAINER_NAME: "portfolio-app"
         HOST_PORT: "80"    # Expose on common HTTP port
