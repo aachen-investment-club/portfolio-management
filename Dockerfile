@@ -4,7 +4,8 @@
 # ---- Stage 1: test the code ----
 # ---------------------------------------------
 
-FROM python:3.12-slim AS tester
+#FROM python:3.12-slim AS tester
+FROM public.ecr.aws/docker/library/python:3.12-slim AS tester
 
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app
@@ -33,7 +34,8 @@ COPY . /app
 
 
 # Use the SAME base image as tester
-FROM python:3.12-slim
+#FROM python:3.12-slim
+FROM public.ecr.aws/docker/library/python:3.12-slim
 
 WORKDIR /app
 
