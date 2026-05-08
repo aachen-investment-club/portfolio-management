@@ -12,7 +12,7 @@ DB_HOST_ALIAS="${DB_HOST_ALIAS:-db-host}"
 # ========== AWS Configuration ==========
 # Set via environment variables or use defaults
 
-
+REGION="${AWS_REGION:-eu-central-1}"
 
 if [ -z "$ECR_REPO_URI" ]; then
     echo "ECR_REPO_URI not found in environment, fetching from SSM..."
