@@ -14,38 +14,9 @@ DB_HOST_ALIAS="${DB_HOST_ALIAS:-db-host}"
 
 
 
-
-ECR_REPO_URI=$(aws ssm get-parameter --name "ECR_REPO_URI_PORTFOLIO_DEVELOPER" --query "Parameter.Value" --output text --region eu-central-1)
-REGION="${AWS_REGION:-eu-central-1}"
-
-if ! command -v aws &> /dev/null; then
-    echo "ERROR: AWS CLI not found. Is it installed on the EC2 instance?"
-    exit 1
-fi
-
-# Fetch from SSM with explicit error logging
-echo "Attempting to fetch ECR_REPO_URI from Parameter Store..."
-SSM_VALUE=$(aws ssm get-parameter --name "/portfolio/ECR_REPO_URI_PORTFOLIO_DEVELOPER" --query "Parameter.Value" --output text --region eu-central-1 2>&1)
-
-if [[ $? -eq 0 ]]; then
-    ECR_REPO_URI=$SSM_VALUE
-    echo "Successfully fetched ECR_REPO_URI: $ECR_REPO_URI"
-else
-    echo "ERROR fetching from SSM: $SSM_VALUE"
-    # If this fails, the error message from AWS will be printed here
-    exit 1
-fi
-
-
 if [ -z "$ECR_REPO_URI" ]; then
-    echo "Fetching ECR_REPO_URI from AWS Parameter Store..."
+    echo "ECR_REPO_URI not found in environment, fetching from SSM..."
     ECR_REPO_URI=$(aws ssm get-parameter --name "/portfolio/ECR_REPO_URI_PORTFOLIO_DEVELOPER" --query "Parameter.Value" --output text --region eu-central-1)
-fi
-
-# Validate ECR_REPO_URI is now set
-if [ -z "$ECR_REPO_URI" ] || [[ "$ECR_REPO_URI" == *"<your-account-id>"* ]]; then
-    echo "Error: ECR_REPO_URI could not be retrieved."
-    exit 1
 fi
 
 # Get EC2 private IP from instance metadata (supports both IMDSv1 and IMDSv2)
