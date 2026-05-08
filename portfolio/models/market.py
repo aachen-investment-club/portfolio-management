@@ -8,6 +8,7 @@ import requests
 import json
 import os
 import yfinance as yf
+import warnings
 
 from sqlalchemy import (
     select,
@@ -34,6 +35,8 @@ from portfolio.exceptions import (
 DATE = "date"
 TICKER = "ticker"
 PRICE = "price_close"
+BASE_CURRENCY = "USD"
+FX_SUFFIX = "=X"
 
 VALID_YF_INTERVALS = {"1m", "1d"}
 
@@ -623,6 +626,135 @@ class Market:
         )
 
         return pd.read_sql(stmt, engine)
+    
+    
+    @classmethod
+    def get_ticker_currency_map(cls, tickers: Iterable[str]) -> dict:
+        """
+        Returns:
+            {
+                "AAPL": "USD",
+                "SAP.DE": "EUR"
+            }
+        """
+        if not tickers:
+            return {}
+
+        stmt = (
+            select(
+                TickerMeta.ticker,
+                TickerMeta.currency
+            )
+            .where(TickerMeta.ticker.in_(tickers))
+        )
+
+        with Session(engine) as session:
+            rows = session.execute(stmt).all()
+
+        out = {}
+        for ticker, currency in rows:
+            if currency is None:
+                out[ticker] = BASE_CURRENCY
+            else:
+                out[ticker] = currency.upper()
+
+        return out
+
+    @classmethod
+    def get_forex_history(
+        cls,
+        forex_tickers: Iterable[str],
+        start: datetime | None = None,
+        end: datetime | None = None,
+    ) -> pd.DataFrame:
+        if not forex_tickers:
+            return pd.DataFrame(columns=["ticker", "date", "price_close"])
+
+        conditions = [ForexDB.ticker.in_(forex_tickers)]
+
+        if start:
+            conditions.append(ForexDB.date >= start)
+        if end:
+            conditions.append(ForexDB.date <= end)
+
+        stmt = (
+            select(ForexDB)
+            .where(and_(*conditions))
+            .order_by(ForexDB.date)
+        )
+
+        return pd.read_sql(stmt, engine)
+
+    @classmethod
+    def build_fx_rate_map(
+        cls,
+        currencies: Iterable[str],
+        dates: pd.Index,
+        base_currency: str = BASE_CURRENCY,
+    ) -> pd.DataFrame:
+        """
+        Returns a DataFrame indexed by date.
+        Columns are currency codes.
+        Values are FX conversion factors INTO USD.
+
+        Example:
+            EUR -> 1.08
+            JPY -> 0.0067
+
+        meaning:
+            usd_price = local_price * fx_factor
+        """
+
+        currencies = sorted(set([c.upper() for c in currencies]))
+
+        fx_df = pd.DataFrame(index=dates)
+
+        for currency in currencies:
+            if currency == base_currency:
+                fx_df[currency] = 1.0
+                continue
+
+            direct_pair = f"{currency}{base_currency}{FX_SUFFIX}"   # e.g. EURUSD=X
+            inverse_pair = f"{base_currency}{currency}{FX_SUFFIX}"  # e.g. USDJPY=X
+
+            fx_history = cls.get_forex_history([direct_pair, inverse_pair])
+
+            if fx_history.empty:
+                warnings.warn(
+                    f"No FX history found for {currency}, defaulting conversion to 1.0 (USD assumed)",
+                    UserWarning
+                )
+                fx_df[currency] = 1.0
+                continue
+
+            fx_pivot = (
+                fx_history
+                .pivot_table(
+                    index="date",
+                    columns="ticker",
+                    values="price_close",
+                    aggfunc="last",
+                )
+                .sort_index()
+            )
+
+            fx_pivot.index = pd.to_datetime(fx_pivot.index).normalize()
+            fx_pivot = fx_pivot.reindex(dates).ffill()
+
+            if direct_pair in fx_pivot.columns:
+                fx_df[currency] = fx_pivot[direct_pair]
+            elif inverse_pair in fx_pivot.columns:
+                fx_df[currency] = 1.0 / fx_pivot[inverse_pair]
+            else:
+                warnings.warn(
+                    f"Could not construct FX series for {currency}, defaulting to 1.0",
+                    UserWarning
+                )
+                fx_df[currency] = 1.0
+
+        return fx_df.ffill()
+    
+    
 
     @classmethod
     def get_market_data_from_yf(cls, tickers, start_date, end_date, granularity= DAY_GRANULARITY):
