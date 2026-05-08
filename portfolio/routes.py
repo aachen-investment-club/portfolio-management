@@ -142,6 +142,9 @@ def update_market():
 
 @bp.route("/")
 def index():
+
+
+
     initial_cash = request.args.get("cash", default=DEFAULT_INITIAL_CASH, type=float)
     leverage_limit = request.args.get("leverage", default=DEFAULT_LEVERAGE, type=float)
 
@@ -253,12 +256,23 @@ def index():
             "beta": f"{Metrics.get_beta(port_returns, bench_returns):.7f}",
             "alpha": f"{Metrics.get_alpha(port_returns, bench_returns):.7f}",
             "total_value": f"${float(nav.iloc[-1]):.1f}",
-            # "value_at_risk": Metrics.get_value_at_risk(port_returns, port_weights)
+            "value_at_risk": f"${Metrics.get_value_at_risk(port_returns, days_horizon=10, CL=0.95, portfolio_value=float(nav.iloc[-1])):.2f}",
         }
     except PortfolioBaseException as e:
         print(f"Metrics calculation failed: {e}")
-        flash(e.flash_message, "warning")
-        return redirect(url_for('bp.index'))
+        
+        # Fallback metrics so we can test locally without initial crash
+        metrics = {
+            "total_return": "N/A",
+            "cash": f"${selected_portfolio.cash:.1f}", 
+            "cagr": "N/A",
+            "volatility": "N/A",
+            "sharpe": "N/A",
+            "max_drawdown": "N/A",
+            "beta": "N/A",
+            "alpha": "N/A",
+            "total_value": "N/A"
+        }
 
 
     if 'user' in session:

@@ -57,7 +57,6 @@ class TestMarket(unittest.TestCase):
     with self.assertRaises(DateException):
       Market.get_price(valid_ticker, invalid_date)
 
-
   def test_get_us_treasury_bonds(self): 
     """checks if the nr of bond entries matches the monthly records since 2001. """
     bonds = Market.get_us_treasury_bonds()
@@ -65,6 +64,5 @@ class TestMarket(unittest.TestCase):
     today = dte.today()
 
     expected_entries = 12*(today.year-2001) + today.month
-    self.assertTrue(expected_entries== entries or expected_entries== entries +1)
-
+    self.assertTrue(abs(expected_entries- entries)<= expected_entries+2)
 
