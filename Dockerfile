@@ -53,4 +53,4 @@ ENV FLASK_DEBUG=0
 EXPOSE 5000
 
 # Use gunicorn (already installed via requirements.txt)
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "wsgi:app", "--workers", "2", "--timeout", "120"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "wsgi:app", "--workers", "2", "--timeout", "120", "--preload"]
