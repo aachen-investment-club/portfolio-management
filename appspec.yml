@@ -1,5 +1,6 @@
 version: 0.0
 os: linux
+file_exists_behavior: OVERWRITE  
 files:
   - source: scripts/
     destination: /home/ec2-user/deploy-scripts
