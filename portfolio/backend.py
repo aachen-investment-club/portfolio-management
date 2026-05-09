@@ -69,24 +69,6 @@ def portfolio():
 def sentiment():
     """
     Return sentiment data for a list of asset symbols.
-
-    Expected JSON body:
-      {
-        "assets":     ["AAPL", "MSFT", ...],   # required
-        "start_date": "YYYY-MM-DD",             # optional
-        "end_date":   "YYYY-MM-DD"              # optional
-      }
-
-    Response:
-      {
-        "AAPL": { asset, article_count, average_sentiment, label, articles[] },
-        "MSFT": { ... },
-        ...
-      }
-
-    Any asset for which the sentiment service returns an error is included
-    with an "error" key so that a single failed ticker does not abort the
-    entire request.
     """
     content = request.json or {}
     assets: list = content.get("assets", [])
