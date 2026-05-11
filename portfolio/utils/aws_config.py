@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine
+import os
 """
 boto3.setup_default_session(
     aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
@@ -15,5 +16,8 @@ url = f"awsathena+rest://" + \
 
 """
 
-# engine = create_engine("sqlite:///app.db")
-engine = create_engine("sqlite:///market.db", echo=False)
+# Database path configurable via environment variable
+# For local development: sqlite:///market.db (relative to working directory)
+# For production (EC2 host): sqlite:////data/market.db (absolute path to host-mounted volume)
+DB_PATH = os.getenv("DB_PATH", "sqlite:///market.db")
+engine = create_engine(DB_PATH, echo=False)

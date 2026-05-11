@@ -163,42 +163,59 @@ class Metrics:
 
     @staticmethod
     def get_value_at_risk(
-            returns: pd.Series,
-            portfolio_weights: np.ndarray,
-            days_horizon: int = 10, n_simulations: int = 10000,
-            CL: float = 0.95, portfolio_value: float = 100.0):
+            returns,
+            portfolio_weights: np.ndarray = None,
+            days_horizon: int = 10,
+            n_simulations: int = 10000,
+            CL: float = 0.95,
+            portfolio_value: float = 100.0):
+        """
+        Parametric (variance-covariance) VaR.
 
-        mean_return = returns.mean()
-        std_dev = returns.std()
+        Args:
+        returns: pd.Series of portfolio returns OR pd.DataFrame of asset returns (columns = assets).
+        portfolio_weights: numpy array of weights (required if `returns` is DataFrame).
+        days_horizon: horizon in days to scale VaR.
+        CL: confidence level (e.g., 0.95).
+        portfolio_value: portfolio monetary value to express VaR in currency.
 
-        z_score = norm.ppf(1 - CL)
-        VaR_var_cov = mean_return + z_score * std_dev
-        return VaR_var_cov
-        """ # time period for which future is simulated  : days_horizon
-        mean_returns = returns.mean()
-        sigma_returns = returns.std()
-        covmat_returns = returns.cov(returns).values()
-        weights = np.array(portfolio_weights)
+        Returns:
+        VaR as a positive loss amount (same units as portfolio_value).
+        """
+        # If returns is a DataFrame, compute portfolio returns using weights
+        if isinstance(returns, pd.DataFrame):
+            if portfolio_weights is None:
+                raise ValueError("`portfolio_weights` required when `returns` is a DataFrame")
+            weights = np.asarray(portfolio_weights)
+            if weights.shape[0] != returns.shape[1]:
+                raise ValueError("Length of `portfolio_weights` must match number of return columns")
+            port_ret = returns.dot(weights)
+        else:
+            # assume returns is already a Series of portfolio returns
+            port_ret = pd.Series(returns).dropna()
 
-        L = np.linalg.cholesky(covmat_returns) # Cholesky decomposition creates correlated random variables based on the covmat
+        if port_ret.empty:
+            raise EmptyPriceException("No return data provided for VaR calculation")
 
-        stochastic_returns = np.zeros(n_simulations)
+        # daily mean and std
+        mu = float(port_ret.mean())
+        sigma = float(port_ret.std(ddof=1))
 
-        for i in range(n_simulations):
-            cumulative_returns = 0.0
-            for _ in range(days_horizon):
-                rand_vec = np.random.normal(size=(len(mean_returns), 1))
-                corr_returns = mean_returns + L @ rand_vec
-                daily_returns = float(weights.T @ corr_returns)  # convert to a scalar portfolio return for that day
-                cumulative_returns = cumulative_returns + daily_returns
-            stochastic_returns[i] = cumulative_returns
+        # aggregate to horizon
+        mu_h = mu * days_horizon
+        sigma_h = sigma * np.sqrt(days_horizon)
 
-        confidence_interval = CL * 100
-        stochastic_losses = - portfolio_value * stochastic_returns
+        # left-tail z for percentile (e.g., for CL=0.95, z = norm.ppf(1-0.95) = norm.ppf(0.05) ~ -1.645)
+        z = norm.ppf(1.0 - CL)
 
-        VaR = np.percentile (stochastic_losses, confidence_interval)
+        # percentile return at the chosen confidence (this will typically be negative)
+        var_return = mu_h + z * sigma_h
 
-        return VaR"""
+        # VaR as a positive loss amount
+        var_loss = -var_return * float(portfolio_value)
+
+        # ensure non-negative
+        return float(max(var_loss, 0.0))
 
     # return on investment
     @staticmethod
@@ -215,7 +232,7 @@ class Metrics:
             raise InvalidPriceException(f"Start price must be positive, got {start_price}")
         roi = (end_price - start_price) / start_price * 100
         return roi
-    
+        
     @staticmethod
     def get_CAGR(prices: pd.Series) -> float:
         if prices.empty:
@@ -258,3 +275,4 @@ class Metrics:
         drawdowns = prices / rolling_max - 1
         mdd = drawdowns.min() * 100
         return mdd
+

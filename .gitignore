@@ -31,3 +31,13 @@ market.db
 market_copy.db
 
 notes.md
+
+# Backup files
+*.orig
+
+# CI/CD secrets
+scripts/cicd.secrets
+scripts/pipeline.json
+
+# macOS
+.DS_Store

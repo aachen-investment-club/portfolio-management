@@ -1,0 +1,17 @@
+version: 0.0
+os: linux
+file_exists_behavior: OVERWRITE  
+files:
+  - source: scripts/
+    destination: /home/ec2-user/deploy-scripts
+hooks:
+  ApplicationStart:        # Use ApplicationStart instead of AfterInstall
+    - location: scripts/deploy.sh
+      timeout: 300
+      runas: root          # Root has docker permissions and can write to system
+      env:
+        ECR_REPO_URI: 058264123925.dkr.ecr.eu-central-1.amazonaws.com/feature/cidc_pipeline 
+        CONTAINER_NAME: "portfolio-app"
+        HOST_PORT: "5000"    # changed to 5000, because we are using NGINX as a reverse proxy.
+        CONTAINER_PORT: "5000"
+        DB_HOST_ALIAS: "db-host"
