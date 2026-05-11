@@ -274,7 +274,7 @@ class Market:
             return result.date() if result else None  
 
     @classmethod
-    def update_market(cls,  batch_size: int = 300):
+    def update_market(cls,  batch_size: int = 300, level="D"):
         print("started market update")
 
         trading_client = TradingClient(
@@ -295,17 +295,21 @@ class Market:
 
         latest_db_date = cls.get_latest_date_in_db()
 
-
         tickers = list(cls.get_traded_assets())
 
         start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
         end_dt_excl = pd.to_datetime(target_end_date) + pd.Timedelta(days=1)
 
+        # Set the interval granularity
+        intervalGranularity = "1d"
+        if level == "m": 
+            intervalGranularity = "1m"
+        
         yfinance_data_output = yf.download(
             tickers=tickers,
             start=start_dt,
             end=end_dt_excl,
-            interval="1d",
+            interval=intervalGranularity,
             group_by="ticker",
             progress=False,
         )
@@ -339,13 +343,12 @@ class Market:
 
 
         df_bars = pd.concat(rows, ignore_index=True)
-        df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None).dt.floor("D")
+        df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None)
 
         df_bars = df_bars[
             (df_bars["date"] >= start_dt) &
             (df_bars["date"] <= pd.to_datetime(target_end_date))
         ]
-
 
         records = df_bars.to_dict(orient="records")
         inserted = 0
