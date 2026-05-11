@@ -451,7 +451,7 @@ class Market:
             return
 
         df_bars = pd.concat(rows, ignore_index=True)
-        df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None).dt.floor("D")
+        df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None)
         df_bars = df_bars[
             (df_bars["date"] >= start_dt) &
             (df_bars["date"] <= pd.to_datetime(yesterday))
