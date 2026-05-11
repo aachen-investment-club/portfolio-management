@@ -282,7 +282,7 @@ class Market:
             return result.date() if result else None  
 
     @classmethod
-    def update_market(cls,  batch_size: int = 300):
+    def update_market(cls,  batch_size: int = 300, granularity=DAY_GRANULARITY):
         print("started market update")
 
         trading_client = TradingClient(
@@ -313,7 +313,7 @@ class Market:
             tickers=tickers,
             start=start_dt,
             end=end_dt_excl,
-            interval=DAY_GRANULARITY,
+            interval=granularity,
             group_by="ticker",
             progress=False,
         )
