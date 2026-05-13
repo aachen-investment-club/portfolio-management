@@ -215,13 +215,16 @@ async function simulate() {
     return;
   }
 
+ const baseCurrency = document.getElementById("base-currency").value;
+  
   const res = await fetch("/api/simulate/purchase", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
     body: JSON.stringify({
       date: buyDate.value,
       ticker: ticker.value.toUpperCase(),
-      cash: amount.value
+      cash: amount.value,
+      base_currency: baseCurrency  // Add this
     })
   });
 

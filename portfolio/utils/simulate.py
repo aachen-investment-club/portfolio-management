@@ -4,7 +4,7 @@ from portfolio.models.metrics import Metrics
 from portfolio.models.market import Market
 from flask import flash
 
-def simulate(base_data, trades, initial_cash, leverage):
+def simulate(base_data, trades, initial_cash, leverage, base_currency="USD"):
     data = dict(base_data)
     for t in trades:
         prices = Market.get_historical_data([t["ticker"]])
@@ -54,6 +54,15 @@ def simulate(base_data, trades, initial_cash, leverage):
 
     nav = p.get_daily_nav()
 
+    # Convert NAV to base currency if not USD
+    if base_currency and base_currency != "USD":
+        forex_pair = f"{base_currency}USD=X"   # e.g., EURUSD=X (USD per EUR)
+        fx_df = Market.get_forex_history([forex_pair], start=nav.index.min(), end=nav.index.max())
+        fx_series = fx_df[fx_df["ticker"] == forex_pair].set_index("date")["price_close"]
+        fx_series = fx_series.reindex(nav.index).ffill().bfill()  # align to nav dates
+        nav = nav / fx_series  # USD -> base_currency (nav in USD divided by USD-per-base)
+
+        
     # Empty Portfolio safeguard (prevent fatal IndexError)
     if nav.empty:
         print("Simulation is empty. Returning blank metrics.")

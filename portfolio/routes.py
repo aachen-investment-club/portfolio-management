@@ -217,8 +217,9 @@ def index():
     sim_nav_ts = None
 
     if len(simulation) > 0:
+        base_currency = simulation[0].get("base_currency", "USD")
         sim_nav, sim_metrics = simulate(
-            selected_data, simulation, initial_cash, leverage)
+            selected_data, simulation, initial_cash, leverage, base_currency=base_currency)
         
         sim_nav_ts = [
             {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}

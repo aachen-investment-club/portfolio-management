@@ -24,6 +24,10 @@ def get_real_portfolio():
 def simulate_purchase():
     trade = request.json
 
+    # capture base currency (default USD)
+    trade["base_currency"] = trade.get("base_currency", "USD")
+
+
     simulation = json.loads(
         request.cookies.get("simulation") or "[]"
     )
