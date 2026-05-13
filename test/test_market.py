@@ -1,5 +1,6 @@
 import unittest
 import datetime
+import os
 
 import pandas as pd
 from datetime import date as dte
@@ -23,6 +24,20 @@ class TestMarket(unittest.TestCase):
   To run:
       python -m unittest discover -s test 
   """
+  def setUp(self):
+      # Load dummy data to prevent Docker from requiring the real database
+      Market.load_ticker_metadata("test/data/mini_meta.csv")
+      Market.load_from_csv("test/data/mini_sp500.csv")
+
+  def tearDown(self):
+      # Remove the temporary database to keep the container clean
+    try:
+      if os.path.exists("market.db"):
+        os.remove("market.db")
+    except PermissionError:
+      # Prevent local tests from failing due to Windows file-locking
+      # Docker (Linux) will delete it perfectly
+      pass
 
   def test_get_price_valid(self):
     valid_ticker = "AAPL"
