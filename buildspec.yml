@@ -1,5 +1,11 @@
 version: 0.2
 
+
+env:
+  secrets-manager: 
+    APCA_API_KEY_ID: "portfolio/APCA_API_KEY_ID:APCA_API_KEY_ID" 
+    APCA_API_SECRET_KEY: "portfolio/APCA_API_SECRET_KEY:APCA_API_SECRET_KEY" 
+
 phases:
   pre_build:
     commands:
@@ -8,7 +14,7 @@ phases:
       - IMAGE_TAG=${COMMIT_HASH:-latest}
   build:
     commands:
-      - docker build -t $ECR_REPO_URI:latest .
+      - docker build --build-arg APCA_API_KEY_ID=$APCA_API_KEY_ID --build-arg APCA_API_SECRET_KEY=$APCA_API_SECRET_KEY -t $ECR_REPO_URI:latest .
       - docker tag $ECR_REPO_URI:latest $ECR_REPO_URI:$IMAGE_TAG
   post_build:
     commands:
