@@ -28,7 +28,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app
 
 
-RUN ls -R /app/test/data/
 
 ARG APCA_API_KEY_ID
 ARG APCA_API_SECRET_KEY

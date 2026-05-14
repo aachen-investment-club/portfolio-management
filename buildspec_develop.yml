@@ -4,8 +4,8 @@ version: 0.2
 
 env:
   secrets-manager: 
-    APCA_API_KEY_ID: "portfolio/APCA_API_KEY_ID:APCA_API_KEY_ID" # might break
-    APCA_API_SECRET_KEY: "portfolio/APCA_API_SECRET_KEY:APCA_API_SECRET_KEY" #this migh break
+    APCA_API_KEY_ID: "portfolio/APCA_API_KEY_ID:APCA_API_KEY_ID" 
+    APCA_API_SECRET_KEY: "portfolio/APCA_API_SECRET_KEY:APCA_API_SECRET_KEY" 
 
 
 
