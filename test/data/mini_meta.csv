@@ -1,0 +1,5 @@
+symbol,exchange,shortname,longname,sector,industry,origin,type,currency
+VTI,NASDAQ,Vanguard Total Stock,Vanguard Total US Stock,Finance,Misc. Finance,US,ETF,USD
+EEM,NYSE,iShares MSCI EM,iShares MSCI Emerging Markets,Finance,Misc. Finance,US,ETF,USD
+IEMG,NASDAQ,iShares MSCI EM,iShares Core MSCI EM,Finance,Misc. Finance,US,ETF,USD
+AAPL,NASDAQ,Apple Inc.,Apple Inc.,Technology,Consumer Electronics,US,Stock,USD

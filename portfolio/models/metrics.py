@@ -264,6 +264,7 @@ class Metrics:
     Unlike volatility, which accounts for both upward and downward movements, 
     MDD is an asymmetric risk measure that focuses exclusively on losses.
     '''
+    
     @staticmethod
     def get_maximum_drawdown(prices: pd.Series) -> float:
         if prices.empty:
