@@ -1,4 +1,14 @@
 import unittest
+
+import math
+import pandas as pd
+import numpy as np
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from portfolio.models.metrics import Metrics
+from portfolio.exceptions import EmptyPriceException, InsufficientDataException ,InvalidPriceException
 from unittest.mock import patch
 import math
 from scipy.stats import norm
@@ -51,6 +61,59 @@ class TestMetrics(unittest.TestCase):
         with self.assertRaises(InsufficientDataException):
             Metrics.get_CAGR(insufficient_prices)
 
+    def test_cagr_negative_price(self):
+        dates=pd.to_datetime(['2025-01-01','2025-03-01','2025-09-01'])
+        prices=pd.Series([0,150,200],index=dates)
+        with self.assertRaises(InvalidPriceException):
+            Metrics.get_CAGR(prices)
+
+    def test_cagr_same_day(self):
+        dates=pd.to_datetime(['2025-01-01','2025-01-01'])
+        prices=pd.Series([150,200],index=dates)
+        result = Metrics.get_CAGR(prices)
+        assert math.isnan(result)
+        
+    def test_cagr(self):
+        dates=pd.to_datetime(['2025-01-01','2025-03-01','2025-09-01'])
+        prices=pd.Series([100,150,200],index=dates)
+        result = Metrics.get_CAGR(prices)
+        assert math.isclose(result, 105.20, abs_tol=1e-2)
+
+    def test_cagr_loss(self):
+        dates=pd.to_datetime(['2025-01-01','2025-03-01','2025-09-01'])
+        prices=pd.Series([200,150,100],index=dates)
+        result = Metrics.get_CAGR(prices)
+        assert math.isclose(result, -51.27, abs_tol=1e-2)
+
+    def test_volatility_empty_series(self):
+        invalid_prices = pd.Series([ ], dtype=float)
+        with self.assertRaises(EmptyPriceException):
+            Metrics.get_annual_volatility(invalid_prices)
+
+    def test_volatility_same_series(self):
+        returns=pd.Series([100.00,100.00,100.00])
+        assert Metrics.get_annual_volatility(returns)==0.0
+
+    def test_volatality(self):
+        periods_per_year=252
+        returns=pd.Series([100.00,125.00,150.00])
+        result = Metrics.get_annual_volatility(returns)
+        assert math.isclose(result, 396.86, abs_tol=1e-2)
+
+    def test_maximum_markdown_empty_prices(self):
+        prices = pd.Series([], dtype=float)
+        with self.assertRaises(EmptyPriceException):
+            Metrics.get_maximum_drawdown(prices)
+
+    def test_maximum_markdown_only_peaks(self):
+        dates=pd.to_datetime(['2025-01-01','2025-03-01','2025-09-01'])
+        prices=pd.Series([200,250,300],index=dates)
+        assert Metrics.get_maximum_drawdown(prices)==0.0
+
+    def test_maximum_markdown(self):
+        dates=pd.to_datetime(['2025-01-01','2025-03-01','2025-09-01','2025-12-01'])
+        prices=pd.Series([200,250,100,300],index=dates)
+        assert Metrics.get_maximum_drawdown(prices)==-60.00
     def test_annual_volatility_empty_returns(self):
         empty_returns = make_returns([])
         with self.assertRaises(EmptyPriceException):
