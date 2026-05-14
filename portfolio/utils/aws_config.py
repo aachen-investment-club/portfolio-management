@@ -19,5 +19,10 @@ url = f"awsathena+rest://" + \
 # Database path configurable via environment variable
 # For local development: sqlite:///market.db (relative to working directory)
 # For production (EC2 host): sqlite:////data/market.db (absolute path to host-mounted volume)
-DB_PATH = os.getenv("DB_PATH", "sqlite:///market.db")
-engine = create_engine(DB_PATH, echo=False)
+DB_DAY_PATH = os.getenv("DB_DAY_PATH", os.getenv("DB_PATH", "sqlite:///market.db"))
+DB_MINUTE_PATH = os.getenv("DB_MINUTE_PATH", "sqlite:///market_minute.db")
+DB_GRANULARITY = os.getenv("DB_GRANULARITY", "day").lower()
+
+day_engine = create_engine(DB_DAY_PATH, echo=False)
+minute_engine = create_engine(DB_MINUTE_PATH, echo=False)
+engine = minute_engine if DB_GRANULARITY == "minute" else day_engine

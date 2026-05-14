@@ -11,11 +11,12 @@ sentry_sdk.init(
 )
 
 from portfolio.models.market import Market
-from portfolio.utils.aws_config import engine
-from portfolio.schemas.market import Base
+from portfolio.utils.aws_config import engine, minute_engine
+from portfolio.schemas.market import Base, MarketMinuteDB
 
 #from portfolio.utils.aws_config import engine
 Base.metadata.create_all(engine)
+MarketMinuteDB.__table__.create(minute_engine, checkfirst=True)
 
 from flask import Flask
 from flask_cors import CORS
