@@ -59,40 +59,42 @@ class Market:
 
 
         with Session(engine) as session:
-            for chunk in pd.read_csv(path, chunksize=batch_size):
-                """
-                due to production memory constraints it is important to 
-                read the csv file in chunks!
-                """
+            with pd.read_csv(path, chunksize=batch_size) as reader:
+                #: similar as for vanilla "with open" statement, read_csv can also be unsafe.
+                for chunk in reader:
+                    """
+                    due to production memory constraints it is important to 
+                    read the csv file in chunks!
+                    """
 
-                print(total_inserted)
-                chunk = chunk.rename(columns={
-                    "exchange": "exchange",
-                    "shortname":"shortname",
-                    "longname":"longname",
-                    "symbol":"ticker",
-                    "sector":"sector",
-                    "industry":"industry",
-                    "origin":"origin", 
-                    "type":"type",
-                    "currency":"currency"
-                })
-                chunk = chunk.drop_duplicates(subset=["ticker"], keep="last")
+                    print(total_inserted)
+                    chunk = chunk.rename(columns={
+                        "exchange": "exchange",
+                        "shortname":"shortname",
+                        "longname":"longname",
+                        "symbol":"ticker",
+                        "sector":"sector",
+                        "industry":"industry",
+                        "origin":"origin", 
+                        "type":"type",
+                        "currency":"currency"
+                    })
+                    chunk = chunk.drop_duplicates(subset=["ticker"], keep="last")
 
-                records = chunk.to_dict(orient="records")
-                if not records:
-                    continue
+                    records = chunk.to_dict(orient="records")
+                    if not records:
+                        continue
 
-                stmt = (
-                    insert(TickerMeta)
-                    .values(records)
-                    .on_conflict_do_nothing(index_elements=["ticker"])
-                )
+                    stmt = (
+                        insert(TickerMeta)
+                        .values(records)
+                        .on_conflict_do_nothing(index_elements=["ticker"])
+                    )
 
-                result = session.execute(stmt)
-                total_inserted += result.rowcount or 0
+                    result = session.execute(stmt)
+                    total_inserted += result.rowcount or 0
 
-                session.commit()
+                    session.commit()
 
         return total_inserted 
 
@@ -132,37 +134,39 @@ class Market:
 
 
         with Session(engine) as session:
-            for chunk in pd.read_csv(path, chunksize=batch_size):
-                """
-                due to production memory constraints it is important to 
-                read the csv file in chunks!
-                """
 
-                print(total_inserted)
-                chunk = chunk.rename(columns={
-                    "Ticker": "ticker",
-                    "Date": "date",
-                    "Price Close": "price_close",
-                })
+            with pd.read_csv(path, chunksize=batch_size) as reader: 
+                for chunk in reader:
+                    """
+                    due to production memory constraints it is important to 
+                    read the csv file in chunks!
+                    """
 
-                chunk["date"] = pd.to_datetime(chunk["date"]).dt.floor("D")
+                    print(total_inserted)
+                    chunk = chunk.rename(columns={
+                        "Ticker": "ticker",
+                        "Date": "date",
+                        "Price Close": "price_close",
+                    })
 
-                chunk = chunk.drop_duplicates(subset=["ticker", "date"], keep="last")
+                    chunk["date"] = pd.to_datetime(chunk["date"]).dt.floor("D")
 
-                records = chunk.to_dict(orient="records")
-                if not records:
-                    continue
+                    chunk = chunk.drop_duplicates(subset=["ticker", "date"], keep="last")
 
-                stmt = (
-                    insert(MarketDB)
-                    .values(records)
-                    .on_conflict_do_nothing(index_elements=["ticker", "date"])
-                )
+                    records = chunk.to_dict(orient="records")
+                    if not records:
+                        continue
 
-                result = session.execute(stmt)
-                total_inserted += result.rowcount or 0
+                    stmt = (
+                        insert(MarketDB)
+                        .values(records)
+                        .on_conflict_do_nothing(index_elements=["ticker", "date"])
+                    )
 
-                session.commit()
+                    result = session.execute(stmt)
+                    total_inserted += result.rowcount or 0
+
+                    session.commit()
 
         return total_inserted 
 
