@@ -7,6 +7,8 @@ from datetime import date as dte
 
 from portfolio.models.market import Market
 from portfolio.exceptions import TickerException, TradingDayException, DateException
+from portfolio.utils.aws_config import engine
+from portfolio.schemas.market import Base
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -26,6 +28,8 @@ class TestMarket(unittest.TestCase):
   """
   def setUp(self):
       # Load dummy data to prevent Docker from requiring the real database
+      Base.metadata.create_all(engine)
+
       Market.load_ticker_metadata("test/data/mini_meta.csv")
       Market.load_from_csv("test/data/mini_sp500.csv")
 

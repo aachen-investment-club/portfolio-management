@@ -23,8 +23,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the entire project (including portfolio/, test/, wsgi.py, etc.)
 COPY . /app
 
+
+RUN ls -R /app/test/data/
+
 # Run tests – if any fail, the build stops here
-#RUN python -m unittest discover -s test 
+RUN python -m unittest discover -s test 
 
 
 
