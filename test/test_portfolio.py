@@ -1,11 +1,12 @@
 import unittest
 from unittest.mock import patch
+import os
 
 import pandas as pd
 import numpy as np
 
 from portfolio.models.portfolio import Portfolio
-
+from portfolio.models.market import Market
 
 TR_TYPE = "type"
 TR_CURRENCY = "currency"
@@ -25,6 +26,9 @@ class TestPortfolio(unittest.TestCase):
     """
 
     def setUp(self):
+        # Load dummy data to prevent Docker from requiring the real database
+        Market.load_ticker_metadata("test/data/mini_meta.csv")
+        Market.load_from_csv("test/data/mini_sp500.csv")
         self.initial_cash = 10000
         self.portfolio = Portfolio(cash=self.initial_cash, leverage_limit=2.0)
 
@@ -49,6 +53,14 @@ class TestPortfolio(unittest.TestCase):
     # Stops the mock Market
     def tearDown(self):
         self.patcher.stop()
+        # Remove the temporary database to keep the container clean
+        try:
+            if os.path.exists("market.db"):
+                os.remove("market.db")
+        except PermissionError:
+            # Prevent local tests from failing due to Windows file-locking
+            # Docker (Linux) will delete it perfectly
+            pass
 
     def test_get_prices_ts(self):
         expected_values = np.array([[100, 200], [110, 190]])

@@ -15,6 +15,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential gcc git curl \
     && rm -rf /var/lib/apt/lists/*
 
+
+
+
+
 # Copy only requirements first (for Docker layer caching)
 COPY requirements.txt requirements.txt
 RUN python -m pip install --upgrade pip
@@ -23,8 +27,19 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the entire project (including portfolio/, test/, wsgi.py, etc.)
 COPY . /app
 
+
+
+ARG APCA_API_KEY_ID
+ARG APCA_API_SECRET_KEY
+
+# Set it as an environment variable so your Python tests can see it
+ENV APCA_API_KEY_ID=$APCA_API_KEY_ID
+ENV APCA_API_SECRET_KEY=$APCA_API_SECRET_KEY
+
+
+
 # Run tests – if any fail, the build stops here
-#RUN python -m unittest discover -s test 
+RUN python -m unittest discover -s test 
 
 
 
@@ -53,4 +68,4 @@ ENV FLASK_DEBUG=0
 EXPOSE 5000
 
 # Use gunicorn (already installed via requirements.txt)
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "wsgi:app", "--workers", "2", "--timeout", "120"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "wsgi:app", "--workers", "2", "--timeout", "120", "--preload"]
