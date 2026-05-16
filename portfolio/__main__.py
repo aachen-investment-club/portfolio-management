@@ -10,7 +10,7 @@ sentry_sdk.init(
     send_default_pii=True,
 )
 
-from portfolio.models.market import Market
+from portfolio.models.market import Market, DB_GRANULARITY
 from portfolio.utils.aws_config import engine, minute_engine
 from portfolio.schemas.market import Base, MarketMinuteDB
 
@@ -60,20 +60,33 @@ if __name__ == "__main__":
     chunks_prod = 5000
     chunks_dev = 10000
 
-    if Market.check_empty():
-        print("market empty, proceeding with creation")
-        Market.load_from_csv("./data/sp500_close_extended.csv", chunks_dev)
-        #Market.load_from_csv("./data/sp500_close_current.csv", chunks_dev)
-
-    else:
-        print("Market already exists, no need to load from csv")
-
-
     if Market.check_meta_empty():
         print("market metadata empty, proceeding with creation")
         Market.load_ticker_metadata("./data/ticker_metadata.csv", 300)
     else:
         print("Market metadata already exists, no need to load from csv")
+
+
+    if Market.check_empty():
+        if DB_GRANULARITY == "day":
+            print("market empty, proceeding with creation (from CSV)")
+            Market.load_from_csv("./data/sp500_close_extended.csv", chunks_dev)
+        elif DB_GRANULARITY == "minute":
+            print("market empty, proceeding with creation (from YF)")
+            Market.update_market()
+        #Market.load_from_csv("./data/sp500_close_current.csv", chunks_dev)
+    
+    if Market.check_forex_empty():
+        print("forex empty, proceeding with creation (from YF)")
+        #: this handles granularity automatically.
+        Market.update_forex(chunks_dev)
+        
+
+    else:
+
+        print("Market already exists, no need to load from csv")
+
+
 
 
     app.run(debug=True)

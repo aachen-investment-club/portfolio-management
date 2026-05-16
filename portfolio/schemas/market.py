@@ -24,13 +24,19 @@ class MarketMinuteDB(Base):
     
 
 
-class ForexDB(Base):
+class ForexDayDB(Base):
     __tablename__ = "forex_data"
     
     ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
     date: Mapped[datetime] = mapped_column(DateTime(), primary_key=True)
     price_close: Mapped[float] = mapped_column(Float(), nullable=False)  
     
+class ForexMinuteDB(Base):
+    __tablename__ = "forex_data_minute"
+    
+    ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
+    date: Mapped[datetime] = mapped_column(DateTime(), primary_key=True)
+    price_close: Mapped[float] = mapped_column(Float(), nullable=False)  
 
 class TickerMeta(Base): 
     __tablename__ = "ticker_metadata"

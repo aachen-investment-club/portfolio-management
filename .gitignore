@@ -28,6 +28,7 @@ notebooks/
 .*.db
 app.db
 market.db
+market_minute.db
 market_copy.db
 
 notes.md
