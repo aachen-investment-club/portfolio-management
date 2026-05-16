@@ -1,6 +1,14 @@
 # this is used for the develop branch
 version: 0.2
 
+
+env:
+  secrets-manager: 
+    APCA_API_KEY_ID: "portfolio/APCA_API_KEY_ID:APCA_API_KEY_ID" 
+    APCA_API_SECRET_KEY: "portfolio/APCA_API_SECRET_KEY:APCA_API_SECRET_KEY" 
+
+
+
 phases:
   pre_build:
     commands:
@@ -8,7 +16,8 @@ phases:
       - IMAGE_TAG="test build"
   build:
     commands:
-      - docker build -t local-test-image:latest .
+
+      - docker build --build-arg APCA_API_KEY_ID=$APCA_API_KEY_ID --build-arg APCA_API_SECRET_KEY=$APCA_API_SECRET_KEY -t local-test-image:latest .
   post_build:
     commands:
       - echo "success"

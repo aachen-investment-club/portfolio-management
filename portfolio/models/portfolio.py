@@ -9,6 +9,7 @@ import numpy as np
 import json
 import boto3
 import yfinance as yf
+import warnings
 
 TR_TYPE = "type"
 TR_CURRENCY = "currency"
@@ -39,23 +40,41 @@ class Portfolio():
         return pd.DataFrame(out)
 
     def get_position_weights(self):
-        total = 0
-        for value in self.current_position.values():
-            total += value
+        prices = self.get_prices_ts()
+
+        if prices.empty:
+            return []
+
+        latest_prices = prices.iloc[-1]
+
+        position_values = {}
+        total_value = 0.0
+
+        for symbol, shares in self.current_position.items():
+            if symbol not in latest_prices:
+                continue
+            value = shares * latest_prices[symbol]
+            position_values[symbol] = value
+            total_value += value
+
+        if total_value == 0:
+            return []
 
         ttn, ntt = Market.get_ticker_short_name_map()
 
-
-        position_weights = [{"symbol": symbol, "weight": position / total}
-                            for symbol, position
-                            in self.current_position.items()
-                            if position != 0]
-        for item in position_weights:
-            if item["symbol"] in ttn: 
-                item["shortname"] = ttn[item["symbol"]]
+        out = []
+        for symbol, value in position_values.items():
+            item = {
+                "symbol": symbol,
+                "weight": value / total_value,
+            }
+            if symbol in ttn:
+                item["shortname"] = ttn[symbol]
             else:
-                item["shortname"] = None 
-        return position_weights
+                item["shortname"] = None
+            out.append(item)
+
+        return out
 
     def _signed_trades(self) -> pd.DataFrame:
         trades = self.trades.reset_index()
@@ -88,7 +107,11 @@ class Portfolio():
 
         return daily_flows.cumsum()
 
-    def get_prices_ts(self) -> pd.DataFrame:
+    def get_prices_ts(
+        self,
+        base_currency: str = "USD",
+        convert_to_base: bool = True,
+    ) -> pd.DataFrame:
         tickers = (
             self.trades
             .index
@@ -111,24 +134,52 @@ class Portfolio():
         )
 
         prices.index = pd.to_datetime(prices.index).normalize()
-        # Forward fill to prevent sudden drop bugs
+        # Forward-fill prices
         prices = prices.ffill()
-        return prices
+
+        if not convert_to_base:
+            return prices
+
+        ticker_currency_map = Market.get_ticker_currency_map(tickers)
+
+        currencies = list(ticker_currency_map.values())
+
+        fx_rates = Market.build_fx_rate_map(
+            currencies=currencies,
+            dates=prices.index,
+            base_currency=base_currency,
+        )
+
+        usd_prices = prices.copy()
+        for ticker in prices.columns:
+            currency = ticker_currency_map.get(ticker, base_currency)
+            conversion_series = fx_rates[currency]
+            usd_prices[ticker] = prices[ticker] * conversion_series
+
+        return usd_prices.ffill()
 
     def get_cash_ts(self, dates: pd.Index) -> pd.Series:
         trades = self.trades.reset_index()
-        prices = self.get_prices_ts()
+        prices = self.get_prices_ts()   # already USD-normalized
 
-        trades["date"] = pd.to_datetime(trades["date"]).dt.normalize()
+        trades["date"] = pd.to_datetime(
+            trades["date"]
+        ).dt.normalize()
 
         px = prices.stack()
-        trade_index = pd.MultiIndex.from_frame(trades[["date", TR_TICKER]])
+        trade_index = pd.MultiIndex.from_frame(
+            trades[["date", TR_TICKER]]
+        )
         trade_prices = px.reindex(trade_index).values
+
+        trades["usd_trade_value"] = (
+            trades[TR_VOLUME] * trade_prices
+        )
 
         trades["signed_cash"] = np.where(
             trades[TR_TYPE] == "PURCHASE",
-            -trades[TR_VOLUME] * trade_prices,
-            trades[TR_VOLUME] * trade_prices,
+            -trades["usd_trade_value"],
+            trades["usd_trade_value"],
         )
 
         daily_cash = (
@@ -183,6 +234,28 @@ class Portfolio():
 
         self.trades = pd.DataFrame(rows)
         self.trades = self.trades.set_index([TR_TICKER, TR_DATE]).sort_index()
+        
+
+        tickers = (
+            self.trades
+            .index
+            .get_level_values(TR_TICKER)
+            .unique()
+            .tolist()
+        )
+
+        currency_map = Market.get_ticker_currency_map(tickers)
+
+        missing_currency = [
+            t for t in tickers
+            if t not in currency_map
+        ]
+
+        if missing_currency:
+            warnings.warn(
+                f"Missing currency metadata for: {missing_currency}. Defaulting to USD.",
+                UserWarning
+            )
 
         # ✅ RECOMPUTE STATE FROM EXISTING METHODS
         prices = self.get_prices_ts()
