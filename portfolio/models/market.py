@@ -1,4 +1,4 @@
-from typing import List, Iterable
+from typing import List, Iterable, Union
 from datetime import datetime, timedelta
 
 from click import clear
@@ -8,6 +8,7 @@ import requests
 import json
 import os
 import yfinance as yf
+import warnings
 
 from sqlalchemy import (
     select,
@@ -18,7 +19,7 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
 from portfolio.utils.aws_config import engine
-from portfolio.schemas.market import MarketDB, TickerMeta, ForexDB
+from portfolio.schemas.market import MarketDB, MarketMinuteDB, TickerMeta, ForexDayDB, ForexMinuteDB
 from alpaca.trading import GetCalendarRequest
 from alpaca.trading.client import TradingClient
 from alpaca.data.requests import StockBarsRequest
@@ -34,12 +35,19 @@ from portfolio.exceptions import (
 DATE = "date"
 TICKER = "ticker"
 PRICE = "price_close"
+BASE_CURRENCY = "USD"
+FX_SUFFIX = "=X"
 
 VALID_YF_INTERVALS = {"1m", "1d"}
 
 MINUTE_GRANULARITY = "1m"
 DAY_GRANULARITY= "1d"
 SEVEN_DAYS = timedelta(days=7)
+
+DB_GRANULARITY = os.getenv("DB_GRANULARITY", "day").lower()
+DB = MarketMinuteDB if DB_GRANULARITY == "minute" else MarketDB
+FOREXDB= ForexMinuteDB if DB_GRANULARITY == "minute" else ForexDayDB
+GRANULARITY = MINUTE_GRANULARITY if DB_GRANULARITY == "minute" else DAY_GRANULARITY
 
 
 
@@ -113,16 +121,27 @@ class Market:
 
     @classmethod
     def check_empty(cls):
-        stmt = select(MarketDB.ticker).limit(1)
+        market_empty = False
+        stmt_market = select(DB.ticker).limit(1)
         with Session(engine) as session:
-            #: in contrast to scalars, scalar selects the first ie equivalent
-            # to .execute().first()
-            result = session.scalar(stmt)
-            return result is None
+            market_empty = session.scalar(stmt_market) is None
+        return market_empty
+    
+    @classmethod
+    def check_forex_empty(cls):
+        forex_empty = False
+        stmt_forex = select(FOREXDB.ticker).limit(1)
+        with Session(engine) as session:
+            forex_empty = session.scalar(stmt_forex) is None
+        return forex_empty 
+    
+
+
+
         
     @classmethod
     def get_all_tickers(cls):
-        stmt = select(MarketDB.ticker).distinct()
+        stmt = select(DB.ticker).distinct()
         with Session(engine) as session:
             result = session.scalars(stmt).all()
             return result
@@ -154,14 +173,16 @@ class Market:
                     chunk = chunk.drop_duplicates(subset=["ticker", "date"], keep="last")
 
                     records = chunk.to_dict(orient="records")
+
                     if not records:
                         continue
 
                     stmt = (
-                        insert(MarketDB)
+                        insert(DB)
                         .values(records)
                         .on_conflict_do_nothing(index_elements=["ticker", "date"])
                     )
+
 
                     result = session.execute(stmt)
                     total_inserted += result.rowcount or 0
@@ -171,9 +192,12 @@ class Market:
         return total_inserted 
 
     @classmethod
-    def get_price(cls, ticker: str, date: datetime.date)->np.float64: 
+    def get_price(cls, ticker: str, date: Union[datetime.date, datetime])->np.float64: 
+
         if ticker not in cls.get_traded_assets():
             raise TickerException(f"Ticker {ticker} is not traded in the market.")
+
+        day_only = date.date() if isinstance(date, datetime) else date 
 
         if not cls.is_trading_day(date): 
             raise TradingDayException(f"{date} is not a trading day (might be weekend or public holiday).")
@@ -181,10 +205,16 @@ class Market:
         if date not in cls.get_trading_days(): 
             raise DateException(f"{date} is not available in the market database.") 
 
+        if GRANULARITY == MINUTE_GRANULARITY:
+            if not isinstance(date, datetime): 
+                raise ValueError("For minute level granularity, target_date must be a datetime.datetime object with minute level information.")
+        else: 
+            query_dt = datetime.combine(day_only, datetime.min.time())
+
         stmt = (
-            select(MarketDB.price_close).where(
-                MarketDB.ticker == ticker, 
-                MarketDB.date == datetime.combine(date, datetime.min.time())
+            select(DB.price_close).where(
+                DB.ticker == ticker, 
+                DB.date == query_dt 
             )
         )
 
@@ -198,14 +228,32 @@ class Market:
 
     @classmethod
     def get_trading_days(cls) -> List:
-        stmt = select(MarketDB.date).distinct().order_by(MarketDB.date)
+        stmt = select(DB.date).distinct().order_by(DB.date)
 
         with Session(engine) as session:
             return [d.date() for d in session.scalars(stmt)]
 
     @classmethod
+    def get_traded_assets_meta(cls) -> List[str]:
+        """
+        fetches traded assets in the METADATA DB
+        """
+        stmt = select(TickerMeta.ticker).distinct().order_by(TickerMeta.ticker)
+
+        with Session(engine) as session:
+            return list(session.scalars(stmt))
+
+
+
+
+
+
+    @classmethod
     def get_traded_assets(cls) -> List[str]:
-        stmt = select(MarketDB.ticker).distinct().order_by(MarketDB.ticker)
+        """
+        fetches traded assets in the DB 
+        """
+        stmt = select(DB.ticker).distinct().order_by(DB.ticker)
 
         with Session(engine) as session:
             return list(session.scalars(stmt))
@@ -276,13 +324,13 @@ class Market:
     @classmethod
     def get_latest_date_in_db(cls): 
         with Session(engine) as session:
-            latest_db_date = session.query(func.max(MarketDB.date)).scalar().date()
-            return latest_db_date
+            latest_db_date = session.query(func.max(DB.date)).scalar()
+            return latest_db_date.date() if latest_db_date else None
 
     @classmethod
     def get_latest_forex_date_in_db(cls):
         with Session(engine) as session:
-            result = session.query(func.max(ForexDB.date)).scalar()
+            result = session.query(func.max(FOREXDB.date)).scalar()
             return result.date() if result else None  
 
     @classmethod
@@ -305,19 +353,33 @@ class Market:
 
         target_end_date = calendar[-1].date  
 
-        latest_db_date = cls.get_latest_date_in_db()
+        if GRANULARITY==MINUTE_GRANULARITY and  cls.check_empty(): 
+            #: fetch last weeks data in case of minute level
+            latest_db_date = today-timedelta(days  = 7)
+
+        else: 
+            #: fetch the latest date normally. the case for day level is handled elsewhere in __main__.
+            latest_db_date = cls.get_latest_date_in_db()
 
 
-        tickers = list(cls.get_traded_assets())
+        #tickers = list(cls.get_traded_assets())
+        tickers = list(cls.get_traded_assets_meta())
+
 
         start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
         end_dt_excl = pd.to_datetime(target_end_date) + pd.Timedelta(days=1)
+
+        # For minute granularity, limit to 7 days due to yfinance restrictions
+        if GRANULARITY == MINUTE_GRANULARITY:
+            max_start = pd.to_datetime(yesterday - timedelta(days=6))
+            start_dt = max(start_dt, max_start)
+
 
         yfinance_data_output = yf.download(
             tickers=tickers,
             start=start_dt,
             end=end_dt_excl,
-            interval=DAY_GRANULARITY,
+            interval=GRANULARITY,
             group_by="ticker",
             progress=False,
         )
@@ -351,7 +413,7 @@ class Market:
 
 
         df_bars = pd.concat(rows, ignore_index=True)
-        df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None).dt.floor("D")
+        df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None)
 
         df_bars = df_bars[
             (df_bars["date"] >= start_dt) &
@@ -361,11 +423,12 @@ class Market:
 
         records = df_bars.to_dict(orient="records")
         inserted = 0
+
         with Session(engine) as session:
             for i in range(0, len(records), batch_size):
                 batch = records[i:i + batch_size]
                 stmt = (
-                    insert(MarketDB)
+                    insert(DB)
                     .values(batch)
                     .on_conflict_do_nothing(index_elements=["ticker", "date"])
                 )
@@ -408,17 +471,38 @@ class Market:
             print("forex already up to date")
             return
 
-        start_dt = pd.to_datetime(
-            (latest_db_date + timedelta(days=1)) if latest_db_date
-            else (yesterday - timedelta(days=365))   # bootstrap: 1 year of history
-        )
+        if cls.check_forex_empty(): 
+            if GRANULARITY == MINUTE_GRANULARITY:
+                #: fetch last weeks data in case of minute level
+                start_dt = pd.to_datetime(today - timedelta(days=7))
+            #: case for day level handled elsewhere
+            else: 
+                stmt = select(func.min(DB.date))
+                with Session(engine) as session:
+                    earliest_db_date = session.scalar(stmt)
+                
+                if earliest_db_date:
+                    start_dt = pd.to_datetime(earliest_db_date)
+                else:
+                    start_dt = pd.to_datetime(yesterday - timedelta(days=365))
+
+
+        else: 
+            start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
+            
+            # Enforce 7-day max for minute data if DB hasn't updated in a while
+            if GRANULARITY == MINUTE_GRANULARITY:
+                max_start = pd.to_datetime(today - timedelta(days=7))
+                start_dt = max(start_dt, max_start)
+        
         end_dt_excl = pd.to_datetime(yesterday) + pd.Timedelta(days=1)
+        
 
         yfinance_data_output = yf.download(
             tickers=cls.FOREX_PAIRS,
             start=start_dt,
             end=end_dt_excl,
-            interval=DAY_GRANULARITY,
+            interval=GRANULARITY,
             group_by="ticker",
             progress=False,
         )
@@ -455,7 +539,7 @@ class Market:
             return
 
         df_bars = pd.concat(rows, ignore_index=True)
-        df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None).dt.floor("D")
+        df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None)
         df_bars = df_bars[
             (df_bars["date"] >= start_dt) &
             (df_bars["date"] <= pd.to_datetime(yesterday))
@@ -467,7 +551,7 @@ class Market:
             for i in range(0, len(records), batch_size):
                 batch = records[i:i + batch_size]
                 stmt = (
-                    insert(ForexDB)
+                    insert(FOREXDB)
                     .values(batch)
                     .on_conflict_do_nothing(index_elements=["ticker", "date"])
                 )
@@ -501,7 +585,7 @@ class Market:
         calendar = trading_client.get_calendar(calendar_req)
         target_end_date = calendar[-1].date
         with Session(engine) as session:
-            latest_db_date_raw = session.query(func.max(MarketDB.date)).scalar()
+            latest_db_date_raw = session.query(func.max(DB.date)).scalar()
             latest_db_date = latest_db_date_raw.date() \
                 if latest_db_date_raw else None
 
@@ -533,7 +617,7 @@ class Market:
                 }
             )
             df_bars['date'] = df_bars['date'] \
-                .dt.tz_localize(None).dt.floor('D')
+                .dt.tz_localize(None)
 
             #: OBSERVATION: remember that sqlalchemy has a limitation for the
             # number of sim. write operations (per query) --> batching is necessary
@@ -544,7 +628,7 @@ class Market:
                 for i in range(0, len(records), 300):
                     batch = records[i:i + 300]
                     stmt = (
-                        insert(MarketDB)
+                        insert(DB)
                         .values(batch)
                         .on_conflict_do_nothing(
                             index_elements=["ticker", "date"]
@@ -585,17 +669,17 @@ class Market:
         if not tickers:
             raise ValueError("tickers must not be empty")
 
-        conditions = [MarketDB.ticker.in_(tickers)]
+        conditions = [DB.ticker.in_(tickers)]
 
         if start:
-            conditions.append(MarketDB.date >= start)
+            conditions.append(DB.date >= start)
         if end:
-            conditions.append(MarketDB.date <= end)
+            conditions.append(DB.date <= end)
 
         stmt = (
-            select(MarketDB)
+            select(DB)
             .where(and_(*conditions))
-            .order_by(MarketDB.date)
+            .order_by(DB.date)
         )
 
         return pd.read_sql(stmt, engine)
@@ -607,30 +691,159 @@ class Market:
 
         subq = (
             select(
-                MarketDB.ticker,
-                func.max(MarketDB.date).label("max_date")
+                DB.ticker,
+                func.max(DB.date).label("max_date")
             )
-            .where(MarketDB.ticker.in_(tickers))
-            .group_by(MarketDB.ticker)
+            .where(DB.ticker.in_(tickers))
+            .group_by(DB.ticker)
             .subquery()
         )
 
         stmt = (
-            select(MarketDB)
+            select(DB)
             .join(
                 subq,
                 and_(
-                    MarketDB.ticker == subq.c.ticker,
-                    MarketDB.date == subq.c.max_date
+                    DB.ticker == subq.c.ticker,
+                    DB.date == subq.c.max_date
                 )
             )
         )
 
         return pd.read_sql(stmt, engine)
+    
+    
+    @classmethod
+    def get_ticker_currency_map(cls, tickers: Iterable[str]) -> dict:
+        """
+        Returns:
+            {
+                "AAPL": "USD",
+                "SAP.DE": "EUR"
+            }
+        """
+        if not tickers:
+            return {}
+
+        stmt = (
+            select(
+                TickerMeta.ticker,
+                TickerMeta.currency
+            )
+            .where(TickerMeta.ticker.in_(tickers))
+        )
+
+        with Session(engine) as session:
+            rows = session.execute(stmt).all()
+
+        out = {}
+        for ticker, currency in rows:
+            if currency is None:
+                out[ticker] = BASE_CURRENCY
+            else:
+                out[ticker] = currency.upper()
+
+        return out
 
     @classmethod
-    def get_market_data_from_yf(cls, tickers, start_date, end_date, granularity= DAY_GRANULARITY):
-        print(f"Getting data from yfinance from {start_date} until {end_date} with granularity {granularity} ...")
+    def get_forex_history(
+        cls,
+        forex_tickers: Iterable[str],
+        start: datetime | None = None,
+        end: datetime | None = None,
+    ) -> pd.DataFrame:
+        if not forex_tickers:
+            return pd.DataFrame(columns=["ticker", "date", "price_close"])
+
+        conditions = [ForexDB.ticker.in_(forex_tickers)]
+
+        if start:
+            conditions.append(ForexDB.date >= start)
+        if end:
+            conditions.append(ForexDB.date <= end)
+
+        stmt = (
+            select(ForexDB)
+            .where(and_(*conditions))
+            .order_by(ForexDB.date)
+        )
+
+        return pd.read_sql(stmt, engine)
+
+    @classmethod
+    def build_fx_rate_map(
+        cls,
+        currencies: Iterable[str],
+        dates: pd.Index,
+        base_currency: str = BASE_CURRENCY,
+    ) -> pd.DataFrame:
+        """
+        Returns a DataFrame indexed by date.
+        Columns are currency codes.
+        Values are FX conversion factors INTO USD.
+
+        Example:
+            EUR -> 1.08
+            JPY -> 0.0067
+
+        meaning:
+            usd_price = local_price * fx_factor
+        """
+
+        currencies = sorted(set([c.upper() for c in currencies]))
+
+        fx_df = pd.DataFrame(index=dates)
+
+        for currency in currencies:
+            if currency == base_currency:
+                fx_df[currency] = 1.0
+                continue
+
+            direct_pair = f"{currency}{base_currency}{FX_SUFFIX}"   # e.g. EURUSD=X
+            inverse_pair = f"{base_currency}{currency}{FX_SUFFIX}"  # e.g. USDJPY=X
+
+            fx_history = cls.get_forex_history([direct_pair, inverse_pair])
+
+            if fx_history.empty:
+                warnings.warn(
+                    f"No FX history found for {currency}, defaulting conversion to 1.0 (USD assumed)",
+                    UserWarning
+                )
+                fx_df[currency] = 1.0
+                continue
+
+            fx_pivot = (
+                fx_history
+                .pivot_table(
+                    index="date",
+                    columns="ticker",
+                    values="price_close",
+                    aggfunc="last",
+                )
+                .sort_index()
+            )
+
+            fx_pivot.index = pd.to_datetime(fx_pivot.index).normalize()
+            fx_pivot = fx_pivot.reindex(dates).ffill()
+
+            if direct_pair in fx_pivot.columns:
+                fx_df[currency] = fx_pivot[direct_pair]
+            elif inverse_pair in fx_pivot.columns:
+                fx_df[currency] = 1.0 / fx_pivot[inverse_pair]
+            else:
+                warnings.warn(
+                    f"Could not construct FX series for {currency}, defaulting to 1.0",
+                    UserWarning
+                )
+                fx_df[currency] = 1.0
+
+        return fx_df.ffill()
+    
+    
+
+    @classmethod
+    def get_market_data_from_yf(cls, tickers, start_date, end_date):
+        print(f"Getting data from yfinance from {start_date} until {end_date} with granularity {GRANULARITY} ...")
 
         available_tickers = cls.get_traded_assets()
 
@@ -641,7 +854,7 @@ class Market:
         if not tickers:
             raise ValueError("Given tickers are not supported.")
 
-        if granularity not in VALID_YF_INTERVALS:
+        if GRANULARITY not in VALID_YF_INTERVALS:
             raise ValueError(f"Given interval is not supported. Valid options: {VALID_YF_INTERVALS}")
 
         if isinstance(start_date, str):
@@ -649,7 +862,7 @@ class Market:
         if isinstance(end_date, str):
             end_date = datetime.strptime(end_date, "%Y-%m-%d")
 
-        if granularity == MINUTE_GRANULARITY and (end_date - start_date) >= SEVEN_DAYS:
+        if GRANULARITY == MINUTE_GRANULARITY and (end_date - start_date) >= SEVEN_DAYS:
             raise ValueError("yfinance does not give minute granularity for durations of 7 days or more.")
 
         try:
@@ -657,7 +870,7 @@ class Market:
                 tickers=tickers,
                 start=start_date,
                 end=end_date,
-                interval=granularity,
+                interval=GRANULARITY,
                 group_by="ticker",
                 progress=False,
             )
