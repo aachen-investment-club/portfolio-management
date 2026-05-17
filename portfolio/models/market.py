@@ -1,4 +1,4 @@
-from typing import List, Iterable
+from typing import List, Iterable,Dict , Tuple
 from datetime import datetime, timedelta
 
 from click import clear
@@ -231,7 +231,29 @@ class Market:
         name_to_ticker = {name:ticker for ticker, name in rows}
 
         return ticker_to_name, name_to_ticker
+    
+    @classmethod
+    def get_ticker_metadata_map(cls) -> Dict[str, Dict[str, str]]:
+        """
+        Returns a dictionary mapping each ticker to its metadata properties.
 
+        """
+        stmt = select(TickerMeta.ticker, TickerMeta.industry, TickerMeta.currency, TickerMeta.exchange).distinct()
+        
+        with Session(engine) as session:
+            rows = session.execute(stmt).all()
+        
+        metadata_map = {}
+        for ticker, industry, currency, exchange in rows:
+            if not ticker:
+                continue
+            metadata_map[ticker] = {
+                "industry": industry or "Unknown",
+                "currency": currency or "Unknown",
+                "exchange": exchange or "Unknown"  
+            }
+            
+        return metadata_map
 
 
     @classmethod

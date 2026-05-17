@@ -328,3 +328,75 @@ sim_ticker.addEventListener("input", (e) => queryFilterHandler(e, sim_ticker_sel
 if (PREVIEW_DATA) {
   Plotly.addTraces(mainChart, PREVIEW_DATA);
 }
+
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. Grabs the data array from the global window scope we updated in HTML
+    const rawWeightsData = window.portfolioWeightsData || [];
+    const groupBySelect = document.getElementById("pie-group-by");
+    const chartContainer = document.getElementById("portfolio-pie-chart");
+
+    // Exit cleanly if we are on a page that doesn't render this chart container
+    if (!chartContainer) return;
+
+    // Display a clean layout notice if there are zero active stock positions
+    if (rawWeightsData.length === 0) {
+        chartContainer.innerHTML = '<p class="text-white-50 text-center pt-5 small">No active positions to map.</p>';
+        return;
+    }
+
+    function updatePieChart(groupByKey) {
+        const aggregationMap = {};
+        
+        rawWeightsData.forEach(item => {
+            // Read the dynamic property key (shortname, industry, currency, or country)
+            const key = item[groupByKey] || "Unknown";
+            aggregationMap[key] = (aggregationMap[key] || 0) + item.weight;
+        });
+
+        const labels = Object.keys(aggregationMap);
+        const weights = Object.values(aggregationMap);
+        const percentages = weights.map(w => (w * 100).toFixed(2));
+
+        const traceData = [{
+            values: percentages,
+            labels: labels,
+            type: 'pie',
+            hole: 0.5, // Creates a clean modern donut chart
+            textinfo: 'percent',
+            hoverinfo: 'label+percent',
+            textposition: 'inside',
+            marker: {
+                colors: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6f42c1', '#fd7e14']
+            }
+        }];
+
+        const chartLayout = {
+            paper_bgcolor: 'rgba(0,0,0,0)', // Fully transparent back canvas
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            font: { color: '#ffffff', family: 'system-ui, -apple-system, sans-serif' },
+            margin: { t: 5, b: 5, l: 5, r: 5 },
+            showlegend: true,
+            legend: { 
+                orientation: 'h', 
+                y: -0.1, 
+                x: 0.5, 
+                xanchor: 'center',
+                font: { size: 10 }
+            }
+        };
+
+        const configOptions = { responsive: true, displayModeBar: false };
+
+        Plotly.newPlot('portfolio-pie-chart', traceData, chartLayout, configOptions);
+    }
+
+    // Default chart layout clusters asset holdings by Short Name on page boot
+    updatePieChart('shortname');
+
+    // Trigger reactive recalculation when a user switches options in the dropdown
+    if (groupBySelect) {
+        groupBySelect.addEventListener('change', function() {
+            updatePieChart(this.value);
+        });
+    }
+});
