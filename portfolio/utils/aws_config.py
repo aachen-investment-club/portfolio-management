@@ -22,7 +22,20 @@ url = f"awsathena+rest://" + \
 DB_DAY_PATH = os.getenv("DB_DAY_PATH", os.getenv("DB_PATH", "sqlite:///market.db"))
 DB_MINUTE_PATH = os.getenv("DB_MINUTE_PATH", "sqlite:///market_minute.db")
 DB_GRANULARITY = os.getenv("DB_GRANULARITY", "day").lower()
+MINUTE_DATA_SOURCE =  os.getenv("MINUTE_DATA_SOURCE", "day").lower()
+ATHENA_CONN_STR = os.getenv("DB_ATHENA_PATH")
 
-day_engine = create_engine(DB_DAY_PATH, echo=False)
-minute_engine = create_engine(DB_MINUTE_PATH, echo=False)
-engine = minute_engine if DB_GRANULARITY == "minute" else day_engine
+
+
+
+
+if DB_GRANULARITY== "minute": 
+    if MINUTE_DATA_SOURCE == "athena":
+        engine =  create_engine(ATHENA_CONN_STR, echo=False)
+
+
+    else:  
+        engine = create_engine(DB_MINUTE_PATH, echo=False)
+
+else: 
+    engine = create_engine(DB_DAY_PATH, echo=False)

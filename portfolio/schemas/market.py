@@ -15,14 +15,6 @@ class MarketDB(Base):
     price_close: Mapped[float] = mapped_column(Float(), nullable=False)
 
 
-class MarketMinuteDB(Base):
-    __tablename__ = "portfolio_management_developer_minute"
-
-    ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
-    date: Mapped[datetime] = mapped_column(DateTime(), primary_key=True)
-    price_close: Mapped[float] = mapped_column(Float(), nullable=False)
-    
-
 
 class ForexDayDB(Base):
     __tablename__ = "forex_data"
@@ -30,6 +22,19 @@ class ForexDayDB(Base):
     ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
     date: Mapped[datetime] = mapped_column(DateTime(), primary_key=True)
     price_close: Mapped[float] = mapped_column(Float(), nullable=False)  
+
+
+
+
+class MarketMinuteDB(Base):
+    __tablename__ = "portfolio_management_developer_minute"
+
+    ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
+    date: Mapped[datetime] = mapped_column(DateTime(), primary_key=True)
+    price_close: Mapped[float] = mapped_column(Float(), nullable=False)
+    month: Mapped[str] = mapped_column(String(7))
+    
+
     
 class ForexMinuteDB(Base):
     __tablename__ = "forex_data_minute"
@@ -37,6 +42,7 @@ class ForexMinuteDB(Base):
     ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
     date: Mapped[datetime] = mapped_column(DateTime(), primary_key=True)
     price_close: Mapped[float] = mapped_column(Float(), nullable=False)  
+    month: Mapped[str] = mapped_column(String(7))
 
 class TickerMeta(Base): 
     __tablename__ = "ticker_metadata"

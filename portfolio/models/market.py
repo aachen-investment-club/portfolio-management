@@ -1,5 +1,6 @@
 from typing import List, Iterable, Union
 from datetime import datetime, timedelta
+import awswrangler as wr
 
 from click import clear
 import pandas as pd
@@ -49,6 +50,9 @@ DB = MarketMinuteDB if DB_GRANULARITY == "minute" else MarketDB
 FOREXDB= ForexMinuteDB if DB_GRANULARITY == "minute" else ForexDayDB
 GRANULARITY = MINUTE_GRANULARITY if DB_GRANULARITY == "minute" else DAY_GRANULARITY
 
+MINUTE_DATA_SOURCE =  os.getenv("MINUTE_DATA_SOURCE", "day").lower()
+MINUTE_DATA_SOURCE_LOCAL = "local"
+MINUTE_DATA_SOURCE_ATHENA = "athena"
 
 
 class Market:
@@ -335,6 +339,7 @@ class Market:
 
     @classmethod
     def update_market(cls,  batch_size: int = 300):
+
         print("started market update")
 
         trading_client = TradingClient(
@@ -419,6 +424,51 @@ class Market:
             (df_bars["date"] >= start_dt) &
             (df_bars["date"] <= pd.to_datetime(target_end_date))
         ]
+
+
+        if GRANULARITY == MINUTE_GRANULARITY and MINUTE_DATA_SOURCE == "athena":
+            s3_bucket = os.getenv("ATHENA_BUCKET_BASE")
+            glue_db = os.getenv("GLUE_DB")
+            table_name = os.getenv("ATHENA_MINUTE_TABLE")
+            
+            # Create partition column
+            df_bars['month'] = df_bars['date'].dt.strftime('%Y-%m')
+            affected_months = df_bars['month'].unique()
+
+            
+            for month in affected_months:
+                new_month_data = df_bars[df_bars['month'] == month]
+                
+                # 1. Fetch existing data for this month
+                try:
+                    existing_data = pd.read_sql(
+                        f"SELECT * FROM {table_name} WHERE month = '{month}'", 
+                        con=engine
+                    )
+                except Exception:
+                    existing_data = pd.DataFrame()
+
+                if not existing_data.empty:
+                    combined_df = pd.concat([existing_data, new_month_data])
+                else:
+                    combined_df = new_month_data
+                    
+                combined_df = combined_df.drop_duplicates(subset=["ticker", "date"], keep="last")
+                
+                # 3. Overwrite the S3 partition (Maintains 3 buckets)
+                wr.s3.to_parquet(
+                    df=combined_df,
+                    path=f"{s3_bucket}/market_minute/",
+                    dataset=True,
+                    database=glue_db,
+                    table=table_name,
+                    partition_cols=['month'],
+                    bucketing_info=(["ticker"], 3),
+                    mode='overwrite_partitions',
+                    index=False
+                )
+            print("Athena market update complete.")
+            return 
 
 
         records = df_bars.to_dict(orient="records")
@@ -544,6 +594,47 @@ class Market:
             (df_bars["date"] >= start_dt) &
             (df_bars["date"] <= pd.to_datetime(yesterday))
         ]
+        if GRANULARITY == MINUTE_GRANULARITY and MINUTE_DATA_SOURCE == "athena":
+            s3_bucket = os.getenv("ATHENA_BUCKET_BASE")
+            glue_db = os.getenv("GLUE_DB")
+            table_name = os.getenv("ATHENA_MINUTE_TABLE_FOREX")
+            
+            df_bars['month'] = df_bars['date'].dt.strftime('%Y-%m')
+            affected_months = df_bars['month'].unique()
+
+            print(f"Syncing Forex to Athena. Affected months: {affected_months}")
+            
+            for month in affected_months:
+                new_month_data = df_bars[df_bars['month'] == month]
+                
+                try:
+                    existing_data = pd.read_sql(
+                        f"SELECT * FROM {table_name} WHERE month = '{month}'", 
+                        con=engine
+                    )
+                except Exception:
+                    existing_data = pd.DataFrame()
+
+                if not existing_data.empty:
+                    combined_df = pd.concat([existing_data, new_month_data])
+                else:
+                    combined_df = new_month_data
+                    
+                combined_df = combined_df.drop_duplicates(subset=["ticker", "date"], keep="last")
+                
+                wr.s3.to_parquet(
+                    df=combined_df,
+                    path=f"{s3_bucket}/forex_minute/",
+                    dataset=True,
+                    database=glue_db,
+                    table=table_name,
+                    partition_cols=['month'],
+                    bucketing_info=(["ticker"], 5), # 5 buckets for Forex
+                    mode='overwrite_partitions',
+                    index=False
+                )
+            print("Athena forex update complete.")
+            return
 
         records = df_bars.to_dict(orient="records")
         inserted = 0
@@ -676,6 +767,17 @@ class Market:
         if end:
             conditions.append(DB.date <= end)
 
+        if start and end and MINUTE_DATA_SOURCE == "athena":
+            start_month = start.replace(day=1) # Ensure we capture the start month
+            months = pd.date_range(start_month, end, freq='MS').strftime('%Y-%m').tolist()
+            
+            if not months: 
+                months = [start.strftime('%Y-%m')]
+                
+            conditions.append(DB.month.in_(months))
+
+
+
         stmt = (
             select(DB)
             .where(and_(*conditions))
@@ -755,17 +857,27 @@ class Market:
         if not forex_tickers:
             return pd.DataFrame(columns=["ticker", "date", "price_close"])
 
-        conditions = [ForexDB.ticker.in_(forex_tickers)]
+        conditions = [FOREXDB.ticker.in_(forex_tickers)]
 
         if start:
-            conditions.append(ForexDB.date >= start)
+            conditions.append(FOREXDB.date >= start)
         if end:
-            conditions.append(ForexDB.date <= end)
+            conditions.append(FOREXDB.date <= end)
+        
+        if start and end and MINUTE_DATA_SOURCE == "athena":
+            # this is impotant wrt. how we do partitioning in athena
+            start_month = start.replace(day=1)
+            months = pd.date_range(start_month, end, freq='MS').strftime('%Y-%m').tolist()
+            
+            if not months: 
+                months = [start.strftime('%Y-%m')]
+                
+            conditions.append(FOREXDB.month.in_(months))
 
         stmt = (
-            select(ForexDB)
+            select(FOREXDB)
             .where(and_(*conditions))
-            .order_by(ForexDB.date)
+            .order_by(FOREXDB.date)
         )
 
         return pd.read_sql(stmt, engine)

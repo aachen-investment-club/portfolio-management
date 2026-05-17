@@ -11,12 +11,12 @@ sentry_sdk.init(
 )
 
 from portfolio.models.market import Market, DB_GRANULARITY
-from portfolio.utils.aws_config import engine, minute_engine
-from portfolio.schemas.market import Base, MarketMinuteDB
+from portfolio.utils.aws_config import engine #, minute_engine
+from portfolio.schemas.market import Base #, MarketMinuteDB
 
 #from portfolio.utils.aws_config import engine
 Base.metadata.create_all(engine)
-MarketMinuteDB.__table__.create(minute_engine, checkfirst=True)
+#MarketMinuteDB.__table__.create(minute_engine, checkfirst=True)
 
 from flask import Flask
 from flask_cors import CORS
@@ -37,6 +37,7 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 # Cognito configuration via environment variables
 COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "eu-central-1_unKiHP6hh")
 COGNITO_REGION = os.getenv("AWS_REGION", "eu-central-1")
+MINUTE_DATA_SOURCE = os.getenv("MINUTE_DATA_SOURCE", "local")
 
 oauth.register(
   name='oidc',
@@ -66,26 +67,27 @@ if __name__ == "__main__":
     else:
         print("Market metadata already exists, no need to load from csv")
 
-
     if Market.check_empty():
         if DB_GRANULARITY == "day":
             print("market empty, proceeding with creation (from CSV)")
             Market.load_from_csv("./data/sp500_close_extended.csv", chunks_dev)
-        elif DB_GRANULARITY == "minute":
+
+        elif DB_GRANULARITY == "minute" and MINUTE_DATA_SOURCE=="local":
+            #: only update on startup in the local case, never in the athena case. 
             print("market empty, proceeding with creation (from YF)")
             Market.update_market()
-        #Market.load_from_csv("./data/sp500_close_current.csv", chunks_dev)
     
     if Market.check_forex_empty():
         print("forex empty, proceeding with creation (from YF)")
-        #: this handles granularity automatically.
-        Market.update_forex(chunks_dev)
+        if not (DB_GRANULARITY == "minute" and MINUTE_DATA_SOURCE=="athena"):
+            #: this handles granularity automatically.
+            #; never update on startup for the athena case. 
+            Market.update_forex(chunks_dev)
         
 
     else:
 
         print("Market already exists, no need to load from csv")
-
 
 
 
