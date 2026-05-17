@@ -75,8 +75,8 @@ def simulate(base_data, trades, initial_cash, leverage):
     bench_df = bench_df[bench_df.index <= nav.index.max()]
     bench_series = bench_df["price close"].sort_index()
 
-    port_returns = Metrics.get_daily_returns(nav)
-    bench_returns = Metrics.get_daily_returns(bench_series)
+    port_returns = Metrics.get_daily_log_returns(nav)
+    bench_returns = Metrics.get_daily_log_returns(bench_series)
 
     metrics = {
         "total_return": f"{Metrics.get_ROI(nav):.7f}%",
