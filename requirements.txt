@@ -97,7 +97,6 @@ soupsieve
 SQLAlchemy
 sseclient-py
 stack-data
-streamlit
 tabulate
 tenacity
 toml
