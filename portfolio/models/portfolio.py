@@ -1,5 +1,5 @@
 from typing import List, Optional
-from portfolio.models.market import Market
+from portfolio.models.market import Market, BASE_CURRENCY
 
 from datetime import date as dte
 from datetime import datetime
@@ -87,7 +87,7 @@ class Portfolio():
 
         return trades[[TR_DATE, TR_TICKER, "signed_qty"]]
 
-    def get_positions_ts(self) -> pd.DataFrame:
+    def get_positions_ts(self, base_currency: str = BASE_CURRENCY) -> pd.DataFrame:
         trades = self._signed_trades()
 
         daily_flows = (
@@ -97,7 +97,7 @@ class Portfolio():
             .unstack(fill_value=0)
         )
 
-        prices = self.get_prices_ts()
+        prices = self.get_prices_ts(base_currency=base_currency)
 
         daily_flows = (
             daily_flows
@@ -109,7 +109,7 @@ class Portfolio():
 
     def get_prices_ts(
         self,
-        base_currency: str = "USD",
+        base_currency: str = BASE_CURRENCY,
         convert_to_base: bool = True,
     ) -> pd.DataFrame:
         tickers = (
@@ -158,9 +158,9 @@ class Portfolio():
 
         return usd_prices.ffill()
 
-    def get_cash_ts(self, dates: pd.Index) -> pd.Series:
+    def get_cash_ts(self, dates: pd.Index, base_currency: str = BASE_CURRENCY) -> pd.Series:
         trades = self.trades.reset_index()
-        prices = self.get_prices_ts()   # already USD-normalized
+        prices = self.get_prices_ts(base_currency=base_currency)   # already USD-normalized
 
         trades["date"] = pd.to_datetime(
             trades["date"]
@@ -192,9 +192,9 @@ class Portfolio():
 
         return self.initial_cash + daily_cash
 
-    def get_daily_nav(self) -> pd.Series:
-        positions = self.get_positions_ts()
-        prices = self.get_prices_ts()
+    def get_daily_nav(self, base_currency: str = BASE_CURRENCY) -> pd.Series:
+        positions = self.get_positions_ts(base_currency=base_currency)
+        prices = self.get_prices_ts(base_currency=base_currency)
 
         positions = positions.reindex(prices.index, method="ffill").fillna(0)
 
@@ -205,7 +205,7 @@ class Portfolio():
         """
 
         market_value = (positions * prices).sum(axis=1)
-        cash = self.get_cash_ts(prices.index)
+        cash = self.get_cash_ts(prices.index, base_currency=base_currency)
 
         nav = market_value + cash
         nav.name = "NAV"
@@ -478,3 +478,10 @@ class Portfolio():
                 Key=file
             )
  
+
+
+
+
+
+
+

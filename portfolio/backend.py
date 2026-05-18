@@ -5,6 +5,7 @@ import pandas as pd
 
 from portfolio.models.metrics import Metrics
 from portfolio.models.alpaca_wrapper import Alpaca
+from portfolio.models.market import BASE_CURRENCY
 from portfolio.utils.simulate import simulate
 from portfolio.utils.portfolio_builder import build_real_portfolio
 
@@ -22,7 +23,14 @@ def get_real_portfolio():
 
 @bp_api.route("/api/simulate/purchase", methods=["POST"])
 def simulate_purchase():
-    trade = request.json
+    trade = request.json or {}
+
+    trade["base_currency"] = (
+        trade.get("base_currency")
+        or request.cookies.get("simulation_base_currency")
+        or BASE_CURRENCY
+    ).upper()
+
 
     simulation = json.loads(
         request.cookies.get("simulation") or "[]"
@@ -34,6 +42,15 @@ def simulate_purchase():
     return resp
 
 
+
+
+@bp_api.route("/api/simulate/base_currency", methods=["POST"])
+def set_simulation_base_currency():
+    payload = request.json or {}
+    base_currency = (payload.get("base_currency") or BASE_CURRENCY).upper()
+    resp = make_response({"status": "ok", "base_currency": base_currency})
+    resp.set_cookie("simulation_base_currency", base_currency)
+    return resp
 @bp_api.route("/api/simulate/reset", methods=["POST"])
 def reset_simulation():
     resp = make_response({"status": "cleared"})
@@ -60,3 +77,8 @@ def portfolio():
         "portfolio": portfolio_data.to_dict(orient="records"),
         "historical": historical_data
     }
+
+
+
+
+
