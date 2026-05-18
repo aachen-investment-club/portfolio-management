@@ -1,10 +1,10 @@
 import pandas as pd
 from portfolio.models.portfolio import Portfolio
 from portfolio.models.metrics import Metrics
-from portfolio.models.market import Market
+from portfolio.models.market import Market, BASE_CURRENCY
 from flask import flash
 
-def simulate(base_data, trades, initial_cash, leverage, base_currency="USD"):
+def simulate(base_data, trades, initial_cash, leverage, base_currency=BASE_CURRENCY):
     data = dict(base_data)
     for t in trades:
         prices = Market.get_historical_data([t["ticker"]])
@@ -52,17 +52,8 @@ def simulate(base_data, trades, initial_cash, leverage, base_currency="USD"):
     p = Portfolio(initial_cash, leverage)
     p.import_from_dict(data)
 
-    nav = p.get_daily_nav()
+    nav = p.get_daily_nav(base_currency=base_currency)
 
-    # Convert NAV to base currency if not USD
-    if base_currency and base_currency != "USD":
-        forex_pair = f"{base_currency}USD=X"   # e.g., EURUSD=X (USD per EUR)
-        fx_df = Market.get_forex_history([forex_pair], start=nav.index.min(), end=nav.index.max())
-        fx_series = fx_df[fx_df["ticker"] == forex_pair].set_index("date")["price_close"]
-        fx_series = fx_series.reindex(nav.index).ffill().bfill()  # align to nav dates
-        nav = nav / fx_series  # USD -> base_currency (nav in USD divided by USD-per-base)
-
-        
     # Empty Portfolio safeguard (prevent fatal IndexError)
     if nav.empty:
         print("Simulation is empty. Returning blank metrics.")
@@ -84,6 +75,14 @@ def simulate(base_data, trades, initial_cash, leverage, base_currency="USD"):
     bench_df = bench_df[bench_df.index <= nav.index.max()]
     bench_series = bench_df["price close"].sort_index()
 
+    if base_currency != BASE_CURRENCY:
+        fx_rates = Market.build_fx_rate_map(
+            currencies=[BASE_CURRENCY],
+            dates=bench_series.index,
+            base_currency=base_currency,
+        )
+        bench_series = bench_series * fx_rates[BASE_CURRENCY]
+
     port_returns = Metrics.get_daily_returns(nav)
     bench_returns = Metrics.get_daily_returns(bench_series)
 
@@ -101,3 +100,8 @@ def simulate(base_data, trades, initial_cash, leverage, base_currency="USD"):
     }
 
     return nav, metrics
+
+
+
+
+

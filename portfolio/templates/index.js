@@ -5,6 +5,7 @@ const NAV = NAV_TS;
 const buyDate = document.getElementById("sim-date");
 const ticker = document.getElementById("sim-ticker-select");
 const amount = document.getElementById("sim-cash");
+const baseCurrencySelect = document.getElementById("base-currency");
 const sim_ticker_select = document.getElementById("sim-ticker-select");
 const sim_ticker = document.getElementById("sim-ticker");
 
@@ -215,7 +216,7 @@ async function simulate() {
     return;
   }
 
- const baseCurrency = document.getElementById("base-currency").value;
+  const baseCurrency = (baseCurrencySelect && baseCurrencySelect.value ? baseCurrencySelect.value : "USD");
   
   const res = await fetch("/api/simulate/purchase", {
     method: "POST",
@@ -238,6 +239,24 @@ async function simulate() {
 }
 
 
+
+async function setSimulationBaseCurrency() {
+  const baseCurrency = (baseCurrencySelect && baseCurrencySelect.value ? baseCurrencySelect.value : "USD");
+
+  const res = await fetch("/api/simulate/base_currency", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ base_currency: baseCurrency })
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    alert(err);
+    return;
+  }
+
+  window.location.reload();
+}
 async function undo() {
   await fetch("/api/simulate/reset", { method:"POST" });
   window.location.reload();
@@ -327,7 +346,12 @@ async function clearPreview() {
 
 preview_filter.addEventListener("input", (e) => queryFilterHandler(e, preview_select));
 sim_ticker.addEventListener("input", (e) => queryFilterHandler(e, sim_ticker_select));
+if (baseCurrencySelect) {
+  baseCurrencySelect.addEventListener("change", setSimulationBaseCurrency);
+}
 
 if (PREVIEW_DATA) {
   Plotly.addTraces(mainChart, PREVIEW_DATA);
 }
+
+

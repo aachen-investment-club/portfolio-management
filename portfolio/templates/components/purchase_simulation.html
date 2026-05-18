@@ -1,4 +1,4 @@
-{% macro PurchaseSimulationPanel(tickers, ticker_to_name) %}
+{% macro PurchaseSimulationPanel(tickers, ticker_to_name, selected_base_currency) %}
 <div class="bg-dark-subtle rounded p-3 mt-3">
     <h5 class="mb-3">Purchase Simulation</h5>
 
@@ -22,13 +22,13 @@
     <div class="form-group">
     <label for="base-currency">Base Currency</label>
     <select id="base-currency" class="form-control">
-        <option value="USD" selected>USD</option>
-        <option value="EUR">EUR</option>
-        <option value="GBP">GBP</option>
-        <option value="JPY">JPY</option>
-        <option value="CHF">CHF</option>
-        <option value="AUD">AUD</option>
-        <option value="CNH">CNH</option>
+        <option value="USD" {% if selected_base_currency == "USD" %}selected{% endif %}>USD</option>
+        <option value="EUR" {% if selected_base_currency == "EUR" %}selected{% endif %}>EUR</option>
+        <option value="GBP" {% if selected_base_currency == "GBP" %}selected{% endif %}>GBP</option>
+        <option value="JPY" {% if selected_base_currency == "JPY" %}selected{% endif %}>JPY</option>
+        <option value="CHF" {% if selected_base_currency == "CHF" %}selected{% endif %}>CHF</option>
+        <option value="AUD" {% if selected_base_currency == "AUD" %}selected{% endif %}>AUD</option>
+        <option value="CNH" {% if selected_base_currency == "CNH" %}selected{% endif %}>CNH</option>
     </select>
     </div>
 
@@ -43,3 +43,5 @@
     </div>
 </div>
 {% endmacro %}
+
+

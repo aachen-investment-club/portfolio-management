@@ -13,7 +13,7 @@ import urllib
 
 from portfolio.models.portfolio import Portfolio
 from portfolio.models.metrics import Metrics
-from portfolio.models.market import Market
+from portfolio.models.market import Market, BASE_CURRENCY
 from portfolio.exceptions import PortfolioBaseException
 from portfolio.utils.validators import validate_date
 #from portfolio.utils.aws_config import engine
@@ -211,13 +211,14 @@ def index():
     simulation = json.loads(
         request.cookies.get("simulation") or "[]"
     )
+    simulation_base_currency = request.cookies.get("simulation_base_currency") or BASE_CURRENCY
 
     sim_nav = None
     sim_metrics = None
     sim_nav_ts = None
 
     if len(simulation) > 0:
-        base_currency = simulation[0].get("base_currency", "USD")
+        base_currency = simulation_base_currency
         sim_nav, sim_metrics = simulate(
             selected_data, simulation, initial_cash, leverage, base_currency=base_currency)
         
@@ -294,6 +295,7 @@ def index():
         metrics=metrics,
         positions=positions,
         simulation=simulation,
+        simulation_base_currency=simulation_base_currency,
         nav_ts=all_charts,
         initial_cash=f"{selected_portfolio.initial_cash}",
         leverage_limit=f"{selected_portfolio.leverage_limit}",
@@ -353,3 +355,8 @@ def remove_portfolio():
 @bp.route("/script/index.js")
 def scriptIndex():
     return render_template("index.js",  api_route=os.getenv("API_ROUTE"))
+
+
+
+
+
