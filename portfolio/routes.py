@@ -204,8 +204,8 @@ def index():
 
     bench_series = (bench_df["price close"].sort_index())
 
-    port_returns = Metrics.get_daily_returns(nav)
-    bench_returns = Metrics.get_daily_returns(bench_series)
+    port_returns = Metrics.get_daily_log_returns(nav)
+    bench_returns = Metrics.get_daily_log_returns(bench_series)
 
     leverage = float(request.args.get("leverage", 100000))
     simulation = json.loads(

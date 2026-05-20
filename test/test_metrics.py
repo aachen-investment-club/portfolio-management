@@ -160,8 +160,8 @@ class TestMetrics(unittest.TestCase):
             Metrics.get_sharpe_ratio(pd.Series())
     
     def test_sharpe_correctness(self):
-      returns = make_returns([0.01, 0.02, 0.03])                                                                                                        
-      expected = (0.02 / 0.01) * np.sqrt(1 / 252)
+      returns = make_returns([0.01, 0.02, 0.03])
+      expected = (0.02 / 0.01) * np.sqrt(252)
       assert math.isclose(Metrics.get_sharpe_ratio(returns), expected, rel_tol=1e-9)
     
     def test_beta_too_short(self):
@@ -225,7 +225,8 @@ class TestMetrics(unittest.TestCase):
         sigma = portfolio_returns.std(ddof=1)
         mu_h = mu * 10
         sigma_h = sigma * np.sqrt(10)
-        expected = max(-(mu_h + norm.ppf(0.05) * sigma_h) * 100.0, 0.0)
+        var_return = mu_h + norm.ppf(0.05) * sigma_h
+        expected = max(100.0 * (1.0 - np.exp(var_return)), 0.0)
         assert math.isclose(Metrics.get_value_at_risk(portfolio_returns), expected, rel_tol=1e-9)
 
     def test_var_portfolio_value_scales(self):
@@ -235,13 +236,13 @@ class TestMetrics(unittest.TestCase):
         assert math.isclose(var_200, var_100 * 2, rel_tol=1e-9)
 
     def test_var_dataframe_input(self):
-        
         asset_returns = pd.DataFrame({"A": [0.01, -0.02, 0.03], "B": [-0.01, 0.02, -0.03]})
         weights = np.array([0.5, 0.5])
         portfolio_returns = asset_returns.dot(weights)
         mu_h = portfolio_returns.mean() * 10
         sigma_h = portfolio_returns.std(ddof=1) * np.sqrt(10)
-        expected = max(-(mu_h + norm.ppf(0.05) * sigma_h) * 100.0, 0.0)
+        var_return = mu_h + norm.ppf(0.05) * sigma_h
+        expected = max(100.0 * (1.0 - np.exp(var_return)), 0.0)
         assert math.isclose(Metrics.get_value_at_risk(asset_returns, portfolio_weights=weights), expected, rel_tol=1e-9)
 
     def test_var_missing_weights_raises(self):
