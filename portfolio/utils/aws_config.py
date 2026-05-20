@@ -28,7 +28,6 @@ ATHENA_CONN_STR = os.getenv("DB_ATHENA_PATH")
 
 
 
-
 if DB_GRANULARITY== "minute": 
     if MINUTE_DATA_SOURCE == "athena":
         engine =  create_engine(ATHENA_CONN_STR, echo=False)

@@ -46,14 +46,28 @@ MINUTE_GRANULARITY = "1m"
 DAY_GRANULARITY= "1d"
 SEVEN_DAYS = timedelta(days=7)
 
+
 DB_GRANULARITY = os.getenv("DB_GRANULARITY", "day").lower()
 DB = MarketMinuteDB if DB_GRANULARITY == "minute" else MarketDB
+
 FOREXDB= ForexMinuteDB if DB_GRANULARITY == "minute" else ForexDayDB
 GRANULARITY = MINUTE_GRANULARITY if DB_GRANULARITY == "minute" else DAY_GRANULARITY
 
 MINUTE_DATA_SOURCE =  os.getenv("MINUTE_DATA_SOURCE", "day").lower()
 MINUTE_DATA_SOURCE_LOCAL = "local"
 MINUTE_DATA_SOURCE_ATHENA = "athena"
+
+
+
+threads_env = os.getenv("YF_THREADS", "0")
+
+try:
+    threads_count = int(threads_env)
+    yf_threads = False if threads_count <= 0 else threads_count
+except ValueError:
+    yf_threads = False
+
+print(f"using {yf_threads if yf_threads else "no"} threads for yfinance")
 
 
 class Market:
@@ -381,27 +395,33 @@ class Market:
 
         target_end_date = calendar[-1].date  
 
-        if GRANULARITY==MINUTE_GRANULARITY and  cls.check_empty(): 
-            #: fetch last weeks data in case of minute level
-            latest_db_date = today-timedelta(days  = 7)
-
-        else: 
-            #: fetch the latest date normally. the case for day level is handled elsewhere in __main__.
-            latest_db_date = cls.get_latest_date_in_db()
 
 
         #tickers = list(cls.get_traded_assets())
         tickers = list(cls.get_traded_assets_meta())
 
 
-        start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
-        end_dt_excl = pd.to_datetime(target_end_date) + pd.Timedelta(days=1)
-
-        # For minute granularity, limit to 7 days due to yfinance restrictions
         if GRANULARITY == MINUTE_GRANULARITY:
-            max_start = pd.to_datetime(yesterday - timedelta(days=6))
-            start_dt = max(start_dt, max_start)
-
+            # 1. ALWAYS fetch a rolling 7-day window for minute data
+            start_dt = pd.to_datetime(today - timedelta(days=7))
+            end_dt_excl = pd.to_datetime(today + timedelta(days=1)) # Include up to right now
+        else:
+            # 2. Daily data continues to rely on the latest DB date
+            latest_db_date = cls.get_latest_date_in_db()
+            
+            if latest_db_date is None:
+                start_dt = pd.to_datetime(today - timedelta(days=365)) # fallback
+            else:
+                start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
+                
+            end_dt_excl = pd.to_datetime(target_end_date) + pd.Timedelta(days=1)
+            
+            # Safety check for daily data
+            if start_dt >= end_dt_excl:
+                print("Daily database is already up to date for this period.")
+                return
+        
+        
 
         yfinance_data_output = yf.download(
             tickers=tickers,
@@ -410,15 +430,19 @@ class Market:
             interval=GRANULARITY,
             group_by="ticker",
             progress=False,
+            threads = yf_threads
         )
 
         if yfinance_data_output is None or yfinance_data_output.empty:
             print("yfinance did not return anything")
             return
 
+
         rows = []
 
+
         if isinstance(yfinance_data_output.columns, pd.MultiIndex):
+
             if "Close" in yfinance_data_output.columns.get_level_values(0):
                 close = yfinance_data_output["Close"]
                 for t in close.columns:
@@ -445,11 +469,13 @@ class Market:
 
         df_bars = df_bars[
             (df_bars["date"] >= start_dt) &
-            (df_bars["date"] <= pd.to_datetime(target_end_date))
+            (df_bars["date"] <  pd.to_datetime(end_dt_excl))
         ]
 
 
         if GRANULARITY == MINUTE_GRANULARITY and MINUTE_DATA_SOURCE == "athena":
+            print("DEBUG: started athena update (minute level)")
+
             s3_bucket = os.getenv("ATHENA_BUCKET_BASE")
             glue_db = os.getenv("GLUE_DB")
             table_name = os.getenv("ATHENA_MINUTE_TABLE")
@@ -475,8 +501,10 @@ class Market:
                     combined_df = pd.concat([existing_data, new_month_data])
                 else:
                     combined_df = new_month_data
-                    
+
                 combined_df = combined_df.drop_duplicates(subset=["ticker", "date"], keep="last")
+                print("inside the if: ")
+                print(combined_df)
                 
                 # 3. Overwrite the S3 partition (Maintains 3 buckets)
                 wr.s3.to_parquet(
@@ -544,13 +572,20 @@ class Market:
             print("forex already up to date")
             return
 
-        if cls.check_forex_empty(): 
-            if GRANULARITY == MINUTE_GRANULARITY:
-                #: fetch last weeks data in case of minute level
-                start_dt = pd.to_datetime(today - timedelta(days=7))
-            #: case for day level handled elsewhere
-            else: 
-                stmt = select(func.min(DB.date))
+        
+        if GRANULARITY == MINUTE_GRANULARITY:
+            start_dt = pd.to_datetime(today - timedelta(days=7))
+            end_dt_excl = pd.to_datetime(today + timedelta(days=1)) 
+        else:
+            latest_db_date = cls.get_latest_forex_date_in_db()
+            
+            if latest_db_date and latest_db_date >= yesterday:
+                print("Forex daily data already up to date")
+                return
+                
+            if cls.check_forex_empty(): 
+                # (Note: I changed DB.date to FOREXDB.date here for correctness)
+                stmt = select(func.min(FOREXDB.date))
                 with Session(engine) as session:
                     earliest_db_date = session.scalar(stmt)
                 
@@ -558,18 +593,13 @@ class Market:
                     start_dt = pd.to_datetime(earliest_db_date)
                 else:
                     start_dt = pd.to_datetime(yesterday - timedelta(days=365))
-
-
-        else: 
-            start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
+            else: 
+                start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
             
-            # Enforce 7-day max for minute data if DB hasn't updated in a while
-            if GRANULARITY == MINUTE_GRANULARITY:
-                max_start = pd.to_datetime(today - timedelta(days=7))
-                start_dt = max(start_dt, max_start)
-        
-        end_dt_excl = pd.to_datetime(yesterday) + pd.Timedelta(days=1)
-        
+            end_dt_excl = pd.to_datetime(yesterday) + pd.Timedelta(days=1)
+            
+            if start_dt >= end_dt_excl:
+                return
 
         yfinance_data_output = yf.download(
             tickers=cls.FOREX_PAIRS,
@@ -578,6 +608,7 @@ class Market:
             interval=GRANULARITY,
             group_by="ticker",
             progress=False,
+            threads = yf_threads
         )
 
         if yfinance_data_output is None or yfinance_data_output.empty:
@@ -615,7 +646,7 @@ class Market:
         df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None)
         df_bars = df_bars[
             (df_bars["date"] >= start_dt) &
-            (df_bars["date"] <= pd.to_datetime(yesterday))
+            (df_bars["date"] <end_dt_excl)
         ]
         if GRANULARITY == MINUTE_GRANULARITY and MINUTE_DATA_SOURCE == "athena":
             s3_bucket = os.getenv("ATHENA_BUCKET_BASE")
@@ -1008,6 +1039,7 @@ class Market:
                 interval=GRANULARITY,
                 group_by="ticker",
                 progress=False,
+                threads = yf_threads
             )
         except Exception as e:
             raise RuntimeError(f"Failed to download data from yfinance: {e}") from e
