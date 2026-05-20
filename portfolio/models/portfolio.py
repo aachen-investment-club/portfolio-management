@@ -61,13 +61,22 @@ class Portfolio():
             return []
 
         ttn, ntt = Market.get_ticker_short_name_map()
+        metadata_map = Market.get_ticker_metadata_map()
 
         out = []
         for symbol, value in position_values.items():
+            ticker_details = metadata_map.get(symbol, {"industry": "Unknown", "currency": "Unknown", "exchange": "Unknown"})
+            
             item = {
                 "symbol": symbol,
                 "weight": value / total_value,
+                "value": value,
+                "shortname": ttn.get(symbol, symbol),
+                "industry": ticker_details.get("industry"),
+                "currency": ticker_details.get("currency"),
+                "country": ticker_details.get("exchange")
             }
+            
             if symbol in ttn:
                 item["shortname"] = ttn[symbol]
             else:

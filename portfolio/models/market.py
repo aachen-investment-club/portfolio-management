@@ -1,5 +1,7 @@
+from typing import List, Iterable,Dict , Tuple
 from typing import List, Iterable, Union
 from datetime import datetime, timedelta
+import awswrangler as wr
 
 from click import clear
 import pandas as pd
@@ -44,11 +46,28 @@ MINUTE_GRANULARITY = "1m"
 DAY_GRANULARITY= "1d"
 SEVEN_DAYS = timedelta(days=7)
 
+
 DB_GRANULARITY = os.getenv("DB_GRANULARITY", "day").lower()
 DB = MarketMinuteDB if DB_GRANULARITY == "minute" else MarketDB
+
 FOREXDB= ForexMinuteDB if DB_GRANULARITY == "minute" else ForexDayDB
 GRANULARITY = MINUTE_GRANULARITY if DB_GRANULARITY == "minute" else DAY_GRANULARITY
 
+MINUTE_DATA_SOURCE =  os.getenv("MINUTE_DATA_SOURCE", "day").lower()
+MINUTE_DATA_SOURCE_LOCAL = "local"
+MINUTE_DATA_SOURCE_ATHENA = "athena"
+
+
+
+threads_env = os.getenv("YF_THREADS", "0")
+
+try:
+    threads_count = int(threads_env)
+    yf_threads = False if threads_count <= 0 else threads_count
+except ValueError:
+    yf_threads = False
+
+print(f"using {yf_threads if yf_threads else "no"} threads for yfinance")
 
 
 class Market:
@@ -276,7 +295,29 @@ class Market:
         name_to_ticker = {name:ticker for ticker, name in rows}
 
         return ticker_to_name, name_to_ticker
+    
+    @classmethod
+    def get_ticker_metadata_map(cls) -> Dict[str, Dict[str, str]]:
+        """
+        Returns a dictionary mapping each ticker to its metadata properties.
 
+        """
+        stmt = select(TickerMeta.ticker, TickerMeta.industry, TickerMeta.currency, TickerMeta.exchange).distinct()
+        
+        with Session(engine) as session:
+            rows = session.execute(stmt).all()
+        
+        metadata_map = {}
+        for ticker, industry, currency, exchange in rows:
+            if not ticker:
+                continue
+            metadata_map[ticker] = {
+                "industry": industry or "Unknown",
+                "currency": currency or "Unknown",
+                "exchange": exchange or "Unknown"  
+            }
+            
+        return metadata_map
 
 
     @classmethod
@@ -335,6 +376,7 @@ class Market:
 
     @classmethod
     def update_market(cls,  batch_size: int = 300):
+
         print("started market update")
 
         trading_client = TradingClient(
@@ -353,27 +395,33 @@ class Market:
 
         target_end_date = calendar[-1].date  
 
-        if GRANULARITY==MINUTE_GRANULARITY and  cls.check_empty(): 
-            #: fetch last weeks data in case of minute level
-            latest_db_date = today-timedelta(days  = 7)
-
-        else: 
-            #: fetch the latest date normally. the case for day level is handled elsewhere in __main__.
-            latest_db_date = cls.get_latest_date_in_db()
 
 
         #tickers = list(cls.get_traded_assets())
         tickers = list(cls.get_traded_assets_meta())
 
 
-        start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
-        end_dt_excl = pd.to_datetime(target_end_date) + pd.Timedelta(days=1)
-
-        # For minute granularity, limit to 7 days due to yfinance restrictions
         if GRANULARITY == MINUTE_GRANULARITY:
-            max_start = pd.to_datetime(yesterday - timedelta(days=6))
-            start_dt = max(start_dt, max_start)
-
+            # 1. ALWAYS fetch a rolling 7-day window for minute data
+            start_dt = pd.to_datetime(today - timedelta(days=7))
+            end_dt_excl = pd.to_datetime(today + timedelta(days=1)) # Include up to right now
+        else:
+            # 2. Daily data continues to rely on the latest DB date
+            latest_db_date = cls.get_latest_date_in_db()
+            
+            if latest_db_date is None:
+                start_dt = pd.to_datetime(today - timedelta(days=365)) # fallback
+            else:
+                start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
+                
+            end_dt_excl = pd.to_datetime(target_end_date) + pd.Timedelta(days=1)
+            
+            # Safety check for daily data
+            if start_dt >= end_dt_excl:
+                print("Daily database is already up to date for this period.")
+                return
+        
+        
 
         yfinance_data_output = yf.download(
             tickers=tickers,
@@ -382,15 +430,19 @@ class Market:
             interval=GRANULARITY,
             group_by="ticker",
             progress=False,
+            threads = yf_threads
         )
 
         if yfinance_data_output is None or yfinance_data_output.empty:
             print("yfinance did not return anything")
             return
 
+
         rows = []
 
+
         if isinstance(yfinance_data_output.columns, pd.MultiIndex):
+
             if "Close" in yfinance_data_output.columns.get_level_values(0):
                 close = yfinance_data_output["Close"]
                 for t in close.columns:
@@ -417,8 +469,57 @@ class Market:
 
         df_bars = df_bars[
             (df_bars["date"] >= start_dt) &
-            (df_bars["date"] <= pd.to_datetime(target_end_date))
+            (df_bars["date"] <  pd.to_datetime(end_dt_excl))
         ]
+
+
+        if GRANULARITY == MINUTE_GRANULARITY and MINUTE_DATA_SOURCE == "athena":
+            print("DEBUG: started athena update (minute level)")
+
+            s3_bucket = os.getenv("ATHENA_BUCKET_BASE")
+            glue_db = os.getenv("GLUE_DB")
+            table_name = os.getenv("ATHENA_MINUTE_TABLE")
+            
+            # Create partition column
+            df_bars['month'] = df_bars['date'].dt.strftime('%Y-%m')
+            affected_months = df_bars['month'].unique()
+
+            
+            for month in affected_months:
+                new_month_data = df_bars[df_bars['month'] == month]
+                
+                # 1. Fetch existing data for this month
+                try:
+                    existing_data = pd.read_sql(
+                        f"SELECT * FROM {table_name} WHERE month = '{month}'", 
+                        con=engine
+                    )
+                except Exception:
+                    existing_data = pd.DataFrame()
+
+                if not existing_data.empty:
+                    combined_df = pd.concat([existing_data, new_month_data])
+                else:
+                    combined_df = new_month_data
+
+                combined_df = combined_df.drop_duplicates(subset=["ticker", "date"], keep="last")
+                print("inside the if: ")
+                print(combined_df)
+                
+                # 3. Overwrite the S3 partition (Maintains 3 buckets)
+                wr.s3.to_parquet(
+                    df=combined_df,
+                    path=f"{s3_bucket}/market_minute/",
+                    dataset=True,
+                    database=glue_db,
+                    table=table_name,
+                    partition_cols=['month'],
+                    bucketing_info=(["ticker"], 3),
+                    mode='overwrite_partitions',
+                    index=False
+                )
+            print("Athena market update complete.")
+            return 
 
 
         records = df_bars.to_dict(orient="records")
@@ -471,13 +572,20 @@ class Market:
             print("forex already up to date")
             return
 
-        if cls.check_forex_empty(): 
-            if GRANULARITY == MINUTE_GRANULARITY:
-                #: fetch last weeks data in case of minute level
-                start_dt = pd.to_datetime(today - timedelta(days=7))
-            #: case for day level handled elsewhere
-            else: 
-                stmt = select(func.min(DB.date))
+        
+        if GRANULARITY == MINUTE_GRANULARITY:
+            start_dt = pd.to_datetime(today - timedelta(days=7))
+            end_dt_excl = pd.to_datetime(today + timedelta(days=1)) 
+        else:
+            latest_db_date = cls.get_latest_forex_date_in_db()
+            
+            if latest_db_date and latest_db_date >= yesterday:
+                print("Forex daily data already up to date")
+                return
+                
+            if cls.check_forex_empty(): 
+                # (Note: I changed DB.date to FOREXDB.date here for correctness)
+                stmt = select(func.min(FOREXDB.date))
                 with Session(engine) as session:
                     earliest_db_date = session.scalar(stmt)
                 
@@ -485,18 +593,13 @@ class Market:
                     start_dt = pd.to_datetime(earliest_db_date)
                 else:
                     start_dt = pd.to_datetime(yesterday - timedelta(days=365))
-
-
-        else: 
-            start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
+            else: 
+                start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
             
-            # Enforce 7-day max for minute data if DB hasn't updated in a while
-            if GRANULARITY == MINUTE_GRANULARITY:
-                max_start = pd.to_datetime(today - timedelta(days=7))
-                start_dt = max(start_dt, max_start)
-        
-        end_dt_excl = pd.to_datetime(yesterday) + pd.Timedelta(days=1)
-        
+            end_dt_excl = pd.to_datetime(yesterday) + pd.Timedelta(days=1)
+            
+            if start_dt >= end_dt_excl:
+                return
 
         yfinance_data_output = yf.download(
             tickers=cls.FOREX_PAIRS,
@@ -505,6 +608,7 @@ class Market:
             interval=GRANULARITY,
             group_by="ticker",
             progress=False,
+            threads = yf_threads
         )
 
         if yfinance_data_output is None or yfinance_data_output.empty:
@@ -542,8 +646,49 @@ class Market:
         df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None)
         df_bars = df_bars[
             (df_bars["date"] >= start_dt) &
-            (df_bars["date"] <= pd.to_datetime(yesterday))
+            (df_bars["date"] <end_dt_excl)
         ]
+        if GRANULARITY == MINUTE_GRANULARITY and MINUTE_DATA_SOURCE == "athena":
+            s3_bucket = os.getenv("ATHENA_BUCKET_BASE")
+            glue_db = os.getenv("GLUE_DB")
+            table_name = os.getenv("ATHENA_MINUTE_TABLE_FOREX")
+            
+            df_bars['month'] = df_bars['date'].dt.strftime('%Y-%m')
+            affected_months = df_bars['month'].unique()
+
+            print(f"Syncing Forex to Athena. Affected months: {affected_months}")
+            
+            for month in affected_months:
+                new_month_data = df_bars[df_bars['month'] == month]
+                
+                try:
+                    existing_data = pd.read_sql(
+                        f"SELECT * FROM {table_name} WHERE month = '{month}'", 
+                        con=engine
+                    )
+                except Exception:
+                    existing_data = pd.DataFrame()
+
+                if not existing_data.empty:
+                    combined_df = pd.concat([existing_data, new_month_data])
+                else:
+                    combined_df = new_month_data
+                    
+                combined_df = combined_df.drop_duplicates(subset=["ticker", "date"], keep="last")
+                
+                wr.s3.to_parquet(
+                    df=combined_df,
+                    path=f"{s3_bucket}/forex_minute/",
+                    dataset=True,
+                    database=glue_db,
+                    table=table_name,
+                    partition_cols=['month'],
+                    bucketing_info=(["ticker"], 5), # 5 buckets for Forex
+                    mode='overwrite_partitions',
+                    index=False
+                )
+            print("Athena forex update complete.")
+            return
 
         records = df_bars.to_dict(orient="records")
         inserted = 0
@@ -676,6 +821,17 @@ class Market:
         if end:
             conditions.append(DB.date <= end)
 
+        if start and end and MINUTE_DATA_SOURCE == "athena":
+            start_month = start.replace(day=1) # Ensure we capture the start month
+            months = pd.date_range(start_month, end, freq='MS').strftime('%Y-%m').tolist()
+            
+            if not months: 
+                months = [start.strftime('%Y-%m')]
+                
+            conditions.append(DB.month.in_(months))
+
+
+
         stmt = (
             select(DB)
             .where(and_(*conditions))
@@ -755,17 +911,27 @@ class Market:
         if not forex_tickers:
             return pd.DataFrame(columns=["ticker", "date", "price_close"])
 
-        conditions = [ForexDB.ticker.in_(forex_tickers)]
+        conditions = [FOREXDB.ticker.in_(forex_tickers)]
 
         if start:
-            conditions.append(ForexDB.date >= start)
+            conditions.append(FOREXDB.date >= start)
         if end:
-            conditions.append(ForexDB.date <= end)
+            conditions.append(FOREXDB.date <= end)
+        
+        if start and end and MINUTE_DATA_SOURCE == "athena":
+            # this is impotant wrt. how we do partitioning in athena
+            start_month = start.replace(day=1)
+            months = pd.date_range(start_month, end, freq='MS').strftime('%Y-%m').tolist()
+            
+            if not months: 
+                months = [start.strftime('%Y-%m')]
+                
+            conditions.append(FOREXDB.month.in_(months))
 
         stmt = (
-            select(ForexDB)
+            select(FOREXDB)
             .where(and_(*conditions))
-            .order_by(ForexDB.date)
+            .order_by(FOREXDB.date)
         )
 
         return pd.read_sql(stmt, engine)
@@ -873,6 +1039,7 @@ class Market:
                 interval=GRANULARITY,
                 group_by="ticker",
                 progress=False,
+                threads = yf_threads
             )
         except Exception as e:
             raise RuntimeError(f"Failed to download data from yfinance: {e}") from e
