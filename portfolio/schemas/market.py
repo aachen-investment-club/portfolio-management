@@ -13,6 +13,10 @@ class MarketDB(Base):
     ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
     date: Mapped[datetime] = mapped_column(DateTime(), primary_key=True)
     price_close: Mapped[float] = mapped_column(Float(), nullable=False)
+    open: Mapped[float] = mapped_column(Float(), nullable=True)
+    high: Mapped[float] = mapped_column(Float(), nullable=True)
+    low: Mapped[float] = mapped_column(Float(), nullable=True)
+    volume: Mapped[float] = mapped_column(Float(), nullable=True)
 
 
 
@@ -22,6 +26,10 @@ class ForexDayDB(Base):
     ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
     date: Mapped[datetime] = mapped_column(DateTime(), primary_key=True)
     price_close: Mapped[float] = mapped_column(Float(), nullable=False)  
+    open: Mapped[float] = mapped_column(Float(), nullable=True)
+    high: Mapped[float] = mapped_column(Float(), nullable=True)
+    low: Mapped[float] = mapped_column(Float(), nullable=True)
+    volume: Mapped[float] = mapped_column(Float(), nullable=True)
 
 
 
@@ -32,6 +40,10 @@ class MarketMinuteDB(Base):
     ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
     date: Mapped[datetime] = mapped_column(DateTime(), primary_key=True)
     price_close: Mapped[float] = mapped_column(Float(), nullable=False)
+    open: Mapped[float] = mapped_column(Float(), nullable=True)
+    high: Mapped[float] = mapped_column(Float(), nullable=True)
+    low: Mapped[float] = mapped_column(Float(), nullable=True)
+    volume: Mapped[float] = mapped_column(Float(), nullable=True)
     month: Mapped[str] = mapped_column(String(7))
     
 
@@ -41,7 +53,11 @@ class ForexMinuteDB(Base):
     
     ticker: Mapped[str] = mapped_column(String(10), primary_key=True)
     date: Mapped[datetime] = mapped_column(DateTime(), primary_key=True)
-    price_close: Mapped[float] = mapped_column(Float(), nullable=False)  
+    price_close: Mapped[float] = mapped_column(Float(), nullable=False) 
+    open: Mapped[float] = mapped_column(Float(), nullable=True)
+    high: Mapped[float] = mapped_column(Float(), nullable=True)
+    low: Mapped[float] = mapped_column(Float(), nullable=True)
+    volume: Mapped[float] = mapped_column(Float(), nullable=True) 
     month: Mapped[str] = mapped_column(String(7))
 
 class TickerMeta(Base): 

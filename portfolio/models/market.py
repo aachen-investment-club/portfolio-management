@@ -448,7 +448,15 @@ class Market:
                 for t in close.columns:
                     s = close[t].dropna()
                     if not s.empty:
-                        rows.append(pd.DataFrame({"ticker": t, "date": s.index, "price_close": s.values}))
+                        rows.append(pd.DataFrame({
+                            "ticker": t, 
+                            "date": s.index, 
+                            "price_close": s.values,
+                            "open": yfinance_data_output["Open"][t].loc[s.index].values,
+                            "high": yfinance_data_output["High"][t].loc[s.index].values,
+                            "low": yfinance_data_output["Low"][t].loc[s.index].values,
+                            "volume": yfinance_data_output["Volume"][t].loc[s.index].values
+                            }))
             else:
                 for t in tickers:
                     try:
@@ -456,12 +464,28 @@ class Market:
                     except Exception:
                         continue
                     if not s.empty:
-                        rows.append(pd.DataFrame({"ticker": t, "date": s.index, "price_close": s.values}))
+                        rows.append(pd.DataFrame({
+                            "ticker": t, 
+                            "date": s.index, 
+                            "price_close": s.values,
+                            "open": yfinance_data_output[t]["Open"].loc[s.index].values,
+                            "high": yfinance_data_output[t]["High"].loc[s.index].values,
+                            "low": yfinance_data_output[t]["Low"].loc[s.index].values,
+                            "volume": yfinance_data_output[t]["Volume"].loc[s.index].values
+                            }))
         else:
             if "Close" in yfinance_data_output.columns:
                 s = yfinance_data_output["Close"].dropna()
                 if not s.empty:
-                    rows.append(pd.DataFrame({"ticker": tickers[0], "date": s.index, "price_close": s.values}))
+                    rows.append(pd.DataFrame({
+                        "ticker": tickers[0], 
+                        "date": s.index, 
+                        "price_close": s.values,
+                        "open": yfinance_data_output["Open"].loc[s.index].values,
+                        "high": yfinance_data_output["High"].loc[s.index].values,
+                        "low": yfinance_data_output["Low"].loc[s.index].values,
+                        "volume": yfinance_data_output["Volume"].loc[s.index].values
+                        }))
 
 
         df_bars = pd.concat(rows, ignore_index=True)
