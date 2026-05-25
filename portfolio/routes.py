@@ -225,12 +225,11 @@ def index():
             for d, v in sim_nav.items()
         ]
         
-        # serialize returns
-        returns_ts = [
-            {"date": d.strftime("%Y-%m-%d"), "value": float(v)}
-            for d, v in port_returns
-            ]
-
+    # serialize returns
+    returns_ts = [
+        {"date": d.strftime("%Y-%m-%d"), "value": float(v)}
+        for d, v in port_returns.items()
+        ]
     preview = request.cookies.get("preview")
     preview_data = None
     if preview:

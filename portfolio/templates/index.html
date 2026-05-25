@@ -138,199 +138,127 @@
 
                 <!-- Main Content -->
                 <section class="col-12 col-lg-10">
-                    <div class="row g-3">
-                        <!-- Main Chart -->
- 
-                            <div class="col-12 col-lg-8">
-                                <h4 class="mb-3">
-                                Portfolio: {{ selected_key.split('/')[-1] if selected_key else "No Portfolio Selected" }}
-                                </h4>
-                                <div class="bg-dark-subtle rounded p-3 m-3">
-                                    <div class="p-3">
-                                        <div id="main-chart" class="container-fluid p-0"></div>
-                                    </div>
-                                    <hr class="m-0 opacity-10">
-
-                                    <div class="p-4 rounded" >
-                                        <h5 class="text-white mb-3">What is Net Asset Value (NAV)?</h5>
+                <div class="row g-3">
+                    
+                    <div class="col-12 col-lg-8">
+                        
+                        <h4 class="mb-3">
+                            Portfolio: {{ selected_key.split('/')[-1] if selected_key else "No Portfolio Selected" }}
+                        </h4>
+                        
+                        <div class="bg-dark-subtle rounded p-3 mb-4">
+                            <div class="p-3">
+                                <h5 class="text-white mb-3">Net Asset Value</h5>
+                                <div id="main-chart" class="container-fluid p-0"></div>
+                            </div>
+                            
+                            <div class="px-3 pb-3">
+                                <button class="btn btn-sm btn-outline-light mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNavInfo" aria-expanded="false" aria-controls="collapseNavInfo">
+                                    What is Net Asset Value (NAV)? <span class="ms-1 dropdown-toggle"></span>
+                                </button>
+                                
+                                <div class="collapse" id="collapseNavInfo">
+                                    <div class="p-3 mt-2 rounded" style="background-color: rgba(0,0,0,0.15);">
                                         <p class="text-white">
                                             Net Asset Value (NAV) represents the total market worth of a portfolio. It is the sum of the market value of all held assets plus any uninvested cash on a specific date.
                                         </p>
 
-                                        <h5 class="text-white mt-4 mb-3">How is it calculated?</h5>
-                                        <div class="py-3 my-3 text-center rounded" style="background-color: rgba(0, 0, 0, 0.2);">
+                                        <h6 class="text-white mt-3 mb-2">How is it calculated?</h6>
+                                        <div class="py-2 my-2 text-center rounded" style="background-color: rgba(0, 0, 0, 0.2);">
                                             <span class="text-white">$$NAV_t = \text{Cash}_t + \sum_{i=1}^{n} (\text{Position}_{i,t} \times \text{Price}_{i,t})$$</span>
                                         </div>
                             
-                                        <div class="d-flex flex-wrap text-white small mt-3">
+                                        <div class="d-flex flex-wrap text-white small mt-2">
                                             <span class="me-2"><strong>Where,</strong></span>
                                             <span class="me-3"><strong class="text-warning">\(n\)</strong> is the total number of assets,</span>
                                             <span class="me-3"><strong class="text-warning">\(i\)</strong> is a specific asset, and</span>
                                             <span class="me-3"><strong class="text-warning">\(t\)</strong> is the specific point in time.</span>
                                         </div>
 
-                                        <h5 class="text-white mt-4 mb-3">Why is it useful?</h5>
-                                        <p class="text-white">
-                                            It provides a single, clear figure to track the performance of a portfolio over time. By calculating NAV daily, we can generate an <strong>Equity Curve</strong>, which is essential for calculating further risk metrics like Volatility, Sharpe Ratio, and Maximum Drawdown. <span class="small opacity-50"></span>
+                                        <h6 class="text-white mt-3 mb-2">Why is it useful?</h6>
+                                        <p class="text-white mb-0">
+                                            It provides a single, clear figure to track the performance of a portfolio over time. By calculating NAV daily, we can generate an <strong>Equity Curve</strong>, which is essential for calculating further risk metrics like Volatility, Sharpe Ratio, and Maximum Drawdown.
                                         </p>
                                     </div>
-
                                 </div>
-
                             </div>
-                            
-                        <!-- Returns plot -->
-                        <div class="col-12 col-lg-8">
-                        <h4 class="mb-3">Log Returns</h4>
-                        <div class="bg-dark-subtle rounded p-3 m-3">
-                            <div class="p-3">
+
+                            <hr class="m-0 opacity-10">
+
+                            <div class="p-3 mt-2">
+                                <h5 class="text-white mb-3">Log Returns</h5>
                                 <div id="returns-chart" class="container-fluid p-0"></div>
                             </div>
                         </div>
-                    </div>
-    
-                        <!-- Positions -->
-                        <div class="col-12 col-lg-4">
-                            {{
-                                PositionsContainer(positions, simulation)
-                            }}
 
-                            <div class="bg-dark-subtle rounded p-3 my-3">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h5 class="text-white m-0" style="font-size: 1.1rem; font-weight: 500;">Weights Allocation</h5>
-                                    <select id="pie-group-by" class="form-select form-select-sm bg-dark text-white border-secondary" style="width: auto; font-size: 0.8rem;">
-                                        <option value="shortname">Asset</option>
-                                        <option value="industry">Industry</option>
-                                        <option value="currency">Currency</option>
-                                        <option value="country">Exchange</option>
-                                    </select>
-                                </div>
-                                
-                                <div id="portfolio-pie-chart" style="min-height: 280px; width: 100%;"></div>
-                            </div>
-                            
-                            {{
-                                SimulationPanel(initial_cash, leverage_limit)
-                            }}
+
+                        <h2 class="mt-4">Preview</h2>
+                        <div class="row g-3 mb-4 p-2 d-flex flex-row gap-2">
+                            <input id="preview-filter" style="width: 10%;"
+                                class="form-control form-control-sm" placeholder="Filter">
+                            <select id="preview-select" style="width: 10%;"
+                                class="form-select form-control-sm" placeholder="NVDA, AAPL, TSLA">
+                                {% for ticker, shortname in ticker_to_name.items()%}
+                                    <option value="{{ticker}}">{{shortname}}</option>
+                                {% endfor%}
+                            </select>
+                            <button style="width: 10%;" class="btn btn-sm btn-primary" onclick="showPreview()">Show</button>
+                            <button style="width: 10%;" class="btn btn-sm btn-secondary" onclick="clearPreview()">Clear</button>
+                        </div>
+                        
+                        <h2 class="mt-2">Portfolio Metrics</h2>
+                        
+                        <div class="row g-3 mb-3">
+                            {{ MetricCard("Total Return", metrics.total_return, id="kpi-total-return", description="What is total return?<br><br>Total return is the full gain or loss from an investment over a period of time. It includes both the change in price and any money the investment paid out, like dividends or interest.<br><br>How is it calculated?<br><br>$$\\text{Total Return} = \\left(\\frac{\\text{Ending Value} - \\text{Starting Value} + \\text{Income}}{\\text{Starting Value}}\\right) \\times 100$$<br><br>EV = Ending Value, SV = Starting Value, I = Income. Income means things like dividends or interest. If those payouts are reinvested, they are also part of the total return.<br><br>Why is it useful?<br><br>It gives a more complete picture than price change alone. A stock may not rise much in price, but it can still give a good return if it pays dividends. That is why total return is useful for comparing investments fairly. (Banton, 2025)") }}
+
+                            {{ MetricCard("Total Value", metrics.total_value, id="kpi-total-value", description="What is total value?<br><br>Total value is the total worth of everything in your portfolio right now. It adds up the current value of all your investments.<br><br>How is it calculated?<br><br>$$\\text{Portfolio Value} = \\sum_{i=1}^{n} q_i \\cdot p_i$$<br><br>Why is it useful?<br><br>It gives a quick snapshot of where your portfolio stands today. It helps you track progress, compare performance over time, and decide when you may need to rebalance. (StartEngine Team, 2026)") }}
+
+                            {{ MetricCard("Jensen's Alpha", metrics.alpha, id="kpi-alpha", description="What is Jensen's alpha?<br><br>Jensen's alpha measures how much a portfolio beat or missed its expected return after adjusting for market risk (beta).<br><br>How is it calculated?<br><br>$$\\alpha = R_p - \\left(R_f + \\beta\\left(R_m - R_f\\right)\\right)$$<br><br>Why is it useful?<br><br>It helps judge manager skill more fairly by accounting for risk.") }}
+
+                            {{ MetricCard("CAGR", metrics.cagr, id="kpi-cagr", description="What is CAGR?<br><br>CAGR is the steady yearly growth rate that would take an investment from start value to end value, assuming reinvestment.<br><br>How is it calculated?<br><br>$$\\text{CAGR} = \\left(\\left(\\frac{\\text{Ending Value}}{\\text{Beginning Value}}\\right)^{\\frac{1}{\\text{Years}}} - 1\\right) \\times 100$$<br><br>Why is it useful?<br><br>It makes it easy to compare long-term growth, but it does not show volatility by itself. (CFI, 2026)") }}
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            {{ MetricCard("Beta", metrics.beta, id="kpi-beta", description="What is beta?<br><br>Beta measures how sensitive a portfolio is to market moves.<br><br>How is it calculated?<br><br>$$\\beta = \\frac{\\operatorname{Cov}(R_p, R_m)}{\\operatorname{Var}(R_m)}$$<br><br>Why is it useful?<br><br>It helps you understand market risk and match investments to your risk tolerance. (CFI, 2026)") }}
+
+                            {{ MetricCard("Volatility", metrics.volatility, id="kpi-volatility", description="What is volatility?<br><br>Volatility shows how much and how quickly prices move up and down over time.<br><br>How is it calculated?<br><br>A common way is standard deviation of returns, often annualized.<br><br>Why is it useful?<br><br>It helps you understand uncertainty and risk. Higher volatility usually means less predictable prices. (Hayes, 2025)") }}
+
+                            {{ MetricCard("Max Drawdown", metrics.max_drawdown, id="kpi-max-drawdown", description="What is max drawdown?<br><br>Max drawdown is the biggest drop from a past peak to a later low before a new peak is reached.<br><br>How is it calculated?<br><br>$$\\text{Max Drawdown} = \\frac{\\text{Trough Value} - \\text{Peak Value}}{\\text{Peak Value}}$$<br><br>Why is it useful?<br><br>It shows worst historical downside risk and potential pain during downturns. (CFI, 2026)") }}
+
+                            {{ MetricCard("VaR (10d, 95%)", metrics.value_at_risk, id="kpi-value-at-risk", description="Value at Risk (parametric).<br><br>Estimates potential loss at 95% confidence over 10 days.<br><br>Formula: $$R_{VaR} = -(\\mu T + z_{\\alpha} \\sigma \\sqrt{T}) \\times V$$<br><br>Where $\\mu$ = mean daily return, $\\sigma$ = daily std, $T$ = horizon, $z_{\\alpha}$ = left-tail z-score, $V$ = portfolio value.") }}
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            {{ MetricCard("Sharpe Ratio", metrics.sharpe, id="kpi-sharpe", description="What is Sharpe ratio?<br><br>Sharpe ratio shows how much extra return you got for the risk you took.<br><br>How is it calculated?<br><br>$$\\text{Sharpe Ratio} = \\frac{R_p - R_f}{\\sigma_p}$$<br><br>Why is it useful?<br><br>It helps compare investments on a risk-adjusted basis. Higher is generally better. (Fernando, 2025)") }}
+
+                            {{ MetricCard("Cash", metrics.cash, id="kpi-cash", description="Cash is the uninvested money currently available in the portfolio. (Hayes, 2025)") }}
                         </div>
                     </div>
-
-                    <!-- Metrics -->
-
-                    <h2 class="mt-5">Preview</h2>
                     
-                    <div class="row g-3 mb-3 p-2 flex flex-row gap-2">
-                        <input id="preview-filter" style="width: 10%;"
-                            class="form-control form-control-sm" placeholder="Filter">
-                        <select id="preview-select" style="width: 10%;"
-                            class="form-select form-control-sm" placeholder="NVDA, AAPL, TSLA">
-                            {% for ticker, shortname in ticker_to_name.items()%}
-                                <option value="{{ticker}}">{{shortname}}</option>
-                            {% endfor%}
-                        </select>
-                        <button style="width: 10%;"
-                            class="btn btn-sm btn-primary"
-                            onclick="showPreview()"
-                            >Show</button>
-                        <button style="width: 10%;"
-                            class="btn btn-sm btn-secondary"
-                            onclick="clearPreview()"
-                            >Clear</button>
+                    <div class="col-12 col-lg-4">
                         
+                        {{ PositionsContainer(positions, simulation) }}
+
+                        <div class="bg-dark-subtle rounded p-3 my-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="text-white m-0" style="font-size: 1.1rem; font-weight: 500;">Weights Allocation</h5>
+                                <select id="pie-group-by" class="form-select form-select-sm bg-dark text-white border-secondary" style="width: auto; font-size: 0.8rem;">
+                                    <option value="shortname">Asset</option>
+                                    <option value="industry">Industry</option>
+                                    <option value="currency">Currency</option>
+                                    <option value="country">Exchange</option>
+                                </select>
+                            </div>
+                            
+                            <div id="portfolio-pie-chart" style="min-height: 280px; width: 100%;"></div>
+                        </div>
+                        
+                        {{ SimulationPanel(initial_cash, leverage_limit) }}
                     </div>
-                    
-                <h2 class="mt-2">Portfolio Metrics</h2>
 
-                <div class="row g-3 mb-3">
-                    {{ MetricCard("Total Return", metrics.total_return, id="kpi-total-return",
-                        description="What is total return?<br><br>
-                Total return is the full gain or loss from an investment over a period of time. It includes both the change in price and any money the investment paid out, like dividends or interest.<br><br>
-                How is it calculated?<br><br>
-                $$\\text{Total Return} = \\left(\\frac{\\text{Ending Value} - \\text{Starting Value} + \\text{Income}}{\\text{Starting Value}}\\right) \\times 100$$<br><br>
-                EV = Ending Value, SV = Starting Value, I = Income.
-                Income means things like dividends or interest. If those payouts are reinvested, they are also part of the total return.<br><br>
-                Why is it useful?<br><br>
-                It gives a more complete picture than price change alone. A stock may not rise much in price, but it can still give a good return if it pays dividends. That is why total return is useful for comparing investments fairly. (Banton, 2025)") }}
-
-                    {{ MetricCard("Total Value", metrics.total_value, id="kpi-total-value",
-                        description="What is total value?<br><br>
-                Total value is the total worth of everything in your portfolio right now. It adds up the current value of all your investments.<br><br>
-                How is it calculated?<br><br>
-                $$\\text{Portfolio Value} = \\sum_{i=1}^{n} q_i \\cdot p_i$$<br><br>
-                Why is it useful?<br><br>
-                It gives a quick snapshot of where your portfolio stands today. It helps you track progress, compare performance over time, and decide when you may need to rebalance. (StartEngine Team, 2026)") }}
-
-                    {{ MetricCard("Jensen's Alpha", metrics.alpha, id="kpi-alpha",
-                        description="What is Jensen's alpha?<br><br>
-                Jensen's alpha measures how much a portfolio beat or missed its expected return after adjusting for market risk (beta).<br><br>
-                How is it calculated?<br><br>
-                $$\\alpha = R_p - \\left(R_f + \\beta\\left(R_m - R_f\\right)\\right)$$<br><br> 
-                Why is it useful?<br><br>
-                It helps judge manager skill more fairly by accounting for risk.") }}
-
-                    {{ MetricCard("CAGR", metrics.cagr, id="kpi-cagr",
-                        description="What is CAGR?<br><br>
-                CAGR is the steady yearly growth rate that would take an investment from start value to end value, assuming reinvestment.<br><br>
-                How is it calculated?<br><br>
-                $$\\text{CAGR} = \\left(\\left(\\frac{\\text{Ending Value}}{\\text{Beginning Value}}\\right)^{\\frac{1}{\\text{Years}}} - 1\\right) \\times 100$$<br><br>
-                Why is it useful?<br><br>
-                It makes it easy to compare long-term growth, but it does not show volatility by itself. (CFI, 2026)") }}
-
-                    
                 </div>
-
-                <div class="row g-3 mb-3">
-                    
-
-                    {{ MetricCard("Beta", metrics.beta, id="kpi-beta",
-                        description="What is beta?<br><br>
-                Beta measures how sensitive a portfolio is to market moves.<br><br>
-                How is it calculated?<br><br>
-                $$\\beta = \\frac{\\operatorname{Cov}(R_p, R_m)}{\\operatorname{Var}(R_m)}$$<br><br>
-                Why is it useful?<br><br>
-                It helps you understand market risk and match investments to your risk tolerance. (CFI, 2026)") }}
-
-                    {{ MetricCard("Volatility", metrics.volatility, id="kpi-volatility",
-                        description="What is volatility?<br><br>
-                Volatility shows how much and how quickly prices move up and down over time.<br><br>
-                How is it calculated?<br><br>
-                A common way is standard deviation of returns, often annualized.<br><br>
-                Why is it useful?<br><br>
-                It helps you understand uncertainty and risk. Higher volatility usually means less predictable prices. (Hayes, 2025)") }}
-
-                    {{ MetricCard("Max Drawdown", metrics.max_drawdown, id="kpi-max-drawdown",
-                        description="What is max drawdown?<br><br>
-                Max drawdown is the biggest drop from a past peak to a later low before a new peak is reached.<br><br>
-                How is it calculated?<br><br>
-                $$\\text{Max Drawdown} = \\frac{\\text{Trough Value} - \\text{Peak Value}}{\\text{Peak Value}}$$<br><br>
-                Why is it useful?<br><br>
-                It shows worst historical downside risk and potential pain during downturns. (CFI, 2026)") }}
-
-                    {{ MetricCard("VaR (10d, 95%)", metrics.value_at_risk, id="kpi-value-at-risk",
-                description="Value at Risk (parametric).<br><br>
-                Estimates potential loss at 95% confidence over 10 days.<br><br>
-                Formula: $$R_{VaR} = -(\\mu T + z_{\\alpha} \\sigma \\sqrt{T}) \\times V$$<br><br>
-                Where $\\mu$ = mean daily return, $\\sigma$ = daily std, $T$ = horizon, $z_{\\alpha}$ = left-tail z-score, $V$ = portfolio value.") }}
+            </section>
                 
-
-                </div>
-
-                <div class="row g-3 mb-3">
-                    
-                {{ MetricCard("Sharpe Ratio", metrics.sharpe, id="kpi-sharpe",
-                        description="What is Sharpe ratio?<br><br>
-                Sharpe ratio shows how much extra return you got for the risk you took.<br><br>
-                How is it calculated?<br><br>
-                $$\\text{Sharpe Ratio} = \\frac{R_p - R_f}{\\sigma_p}$$<br><br>
-                Why is it useful?<br><br>
-                It helps compare investments on a risk-adjusted basis. Higher is generally better. (Fernando, 2025)") }}
-
-                {{ MetricCard("Cash", metrics.cash, id="kpi-cash",
-                        description="Cash is the uninvested money currently available in the portfolio. (Hayes, 2025)") }}
-
-                </div>
-
-                </section>
                 
             </div>
 
@@ -504,7 +432,7 @@
         
         <script>
             const NAV_TS = {{ nav_ts | tojson }};
-            const RETURNS_TS = {{ returns_ts | tojson }}; # for plotting returns
+            const RETURNS_TS = {{ returns_ts | tojson }}; 
             const SIM_METRICS_TS = {{ sim_metrics | tojson }};
             const SIM_NAV_TS = {{ sim_nav | tojson }};
             const PREVIEW_DATA = {{ preview_data | tojson }};
