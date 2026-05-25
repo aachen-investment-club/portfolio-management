@@ -224,6 +224,12 @@ def index():
             {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}
             for d, v in sim_nav.items()
         ]
+        
+        # serialize returns
+        returns_ts = [
+            {"date": d.strftime("%Y-%m-%d"), "value": float(v)}
+            for d, v in port_returns
+            ]
 
     preview = request.cookies.get("preview")
     preview_data = None
@@ -294,6 +300,7 @@ def index():
         positions=positions,
         simulation=simulation,
         nav_ts=all_charts,
+        returns_ts=returns_ts, # for serialized returns
         initial_cash=f"{selected_portfolio.initial_cash}",
         leverage_limit=f"{selected_portfolio.leverage_limit}",
         api_route=os.getenv("API_ROUTE"),

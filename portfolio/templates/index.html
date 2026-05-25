@@ -178,7 +178,17 @@
                                 </div>
 
                             </div>
- 
+                            
+                        <!-- Returns plot -->
+                        <div class="col-12 col-lg-8">
+                        <h4 class="mb-3">Log Returns</h4>
+                        <div class="bg-dark-subtle rounded p-3 m-3">
+                            <div class="p-3">
+                                <div id="returns-chart" class="container-fluid p-0"></div>
+                            </div>
+                        </div>
+                    </div>
+    
                         <!-- Positions -->
                         <div class="col-12 col-lg-4">
                             {{
@@ -494,6 +504,7 @@
         
         <script>
             const NAV_TS = {{ nav_ts | tojson }};
+            const RETURNS_TS = {{ returns_ts | tojson }}; # for plotting returns
             const SIM_METRICS_TS = {{ sim_metrics | tojson }};
             const SIM_NAV_TS = {{ sim_nav | tojson }};
             const PREVIEW_DATA = {{ preview_data | tojson }};
