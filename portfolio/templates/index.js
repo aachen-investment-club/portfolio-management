@@ -400,3 +400,43 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 });
+
+// add returns or log returns
+
+const returnsChart = document.getElementById("returns-chart");
+
+if (returnsChart && typeof RETURNS_TS !== "undefined" && RETURNS_TS.length > 0) {
+    const returnsDates = RETURNS_TS.map(d => d.date);
+    const returnsValues = RETURNS_TS.map(d => d.value);
+
+    const returnsTrace = {
+        x: returnsDates,
+        y: returnsValues,
+        type: "bar",
+        name: "Log Returns",
+        marker: {
+            color: returnsValues.map(v => v >= 0 ? "#2ecc71" : "#e74c3c")
+        }
+    };
+
+    const returnsLayout = {
+        paper_bgcolor: "#3A3A3A",
+        plot_bgcolor: "#3A3A3A",
+        font: { color: "white" },
+        margin: { t: 40, r: 30, l: 60, b: 60 },
+        xaxis: {
+            title: { text: "Date", font: { size: 14, color: "#adb5bd" } },
+            gridcolor: "#666",
+            zeroline: false
+        },
+        yaxis: {
+            title: { text: "Log Return", font: { size: 14, color: "#adb5bd" } },
+            gridcolor: "#666",
+            zeroline: true,
+            zerolinecolor: "#999"
+        },
+        hovermode: "x unified"
+    };
+
+    Plotly.newPlot(returnsChart, [returnsTrace], returnsLayout, { responsive: true });
+}
