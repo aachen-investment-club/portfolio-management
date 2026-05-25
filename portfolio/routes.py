@@ -78,9 +78,12 @@ def check_auth(f):
 def get_cached_nav_data(
         selected_data,
         initial_cash,
-        leverage_limit):
+        leverage_limit,
+        resample_daily=False):
     portfolio = Portfolio(initial_cash, leverage_limit)
     portfolio.import_from_dict(selected_data)
+    if resample_daily:
+        portfolio.resample_trades_to_daily()
     nav = portfolio.get_daily_nav()
 
     return portfolio, nav
@@ -154,6 +157,8 @@ def index():
         request.args.get("start_date", default=DEFAULT_START),
         request.args.get("end_date", default=default_end)
     )
+    
+    resample_daily = request.args.get("resample", "false").lower() == "true"
 
     portfolios = Portfolio.list_portfolios()
     selected_key = request.args.get("portfolio")
@@ -178,7 +183,7 @@ def index():
     ]
     for key, portfolio in shown_portfolios:
         p, data =  get_cached_nav_data(
-            portfolio, initial_cash, leverage_limit
+            portfolio, initial_cash, leverage_limit, resample_daily
         )
         data = data[data.index >= start_date]
         data = data[data.index <= end_date]
@@ -303,7 +308,8 @@ def index():
         sim_metrics=sim_metrics,
         preview_data=preview_data, 
         ticker_to_name = ttn, 
-        name_to_timer = ntt
+        name_to_timer = ntt,
+        resample_daily=resample_daily
     ))
     resp.set_cookie("base_portfolio", json.dumps(selected_data))
     return resp

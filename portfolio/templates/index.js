@@ -400,3 +400,14 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 });
+
+document.addEventListener("DOMContentLoaded", function() {
+    const resampleToggle = document.getElementById("resampleToggle");
+    if (resampleToggle) {
+        resampleToggle.addEventListener("change", function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set("resample", this.checked);
+            window.location.search = urlParams.toString();
+        });
+    }
+});
