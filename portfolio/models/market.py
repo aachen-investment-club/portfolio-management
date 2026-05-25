@@ -755,17 +755,17 @@ class Market:
         if not forex_tickers:
             return pd.DataFrame(columns=["ticker", "date", "price_close"])
 
-        conditions = [ForexDB.ticker.in_(forex_tickers)]
+        conditions = [FOREXDB.ticker.in_(forex_tickers)]
 
         if start:
-            conditions.append(ForexDB.date >= start)
+            conditions.append(FOREXDB.date >= start)
         if end:
-            conditions.append(ForexDB.date <= end)
+            conditions.append(FOREXDB.date <= end)
 
         stmt = (
-            select(ForexDB)
+            select(FOREXDB)
             .where(and_(*conditions))
-            .order_by(ForexDB.date)
+            .order_by(FOREXDB.date)
         )
 
         return pd.read_sql(stmt, engine)

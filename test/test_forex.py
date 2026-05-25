@@ -104,12 +104,11 @@ class TestForex(unittest.TestCase):
           },
       ])
 
-      with patch.object(market_module, "ForexDB", FOREXDB, create=True):
-          result = Market.get_forex_history(
-              ["EURUSD=X"],
-              start=datetime(2025, 1, 1),
-              end=datetime(2025, 1, 2),
-          )
+      result = Market.get_forex_history(
+          ["EURUSD=X"],
+          start=datetime(2025, 1, 1),
+          end=datetime(2025, 1, 2),
+      )
 
       self.assertEqual(list(result["ticker"]), ["EURUSD=X", "EURUSD=X"])
       self.assertEqual(len(result), 2)
@@ -128,12 +127,11 @@ class TestForex(unittest.TestCase):
           },
       ])
 
-      with patch.object(market_module, "ForexDB", FOREXDB, create=True):
-          result = Market.get_forex_history(
-              ["EURUSD=X"],
-              start=datetime(2025, 1, 2),
-              end=datetime(2025, 1, 2),
-          )
+      result = Market.get_forex_history(
+          ["EURUSD=X"],
+          start=datetime(2025, 1, 2),
+          end=datetime(2025, 1, 2),
+      )
 
       self.assertTrue(result.empty)
 
