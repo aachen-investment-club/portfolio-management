@@ -238,17 +238,26 @@
                         {{ PositionsContainer(positions, simulation) }}
 
                         <div class="bg-dark-subtle rounded p-3 my-3">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h5 class="text-white m-0" style="font-size: 1.1rem; font-weight: 500;">Weights Allocation</h5>
-                                <select id="pie-group-by" class="form-select form-select-sm bg-dark text-white border-secondary" style="width: auto; font-size: 0.8rem;">
-                                    <option value="shortname">Asset</option>
-                                    <option value="industry">Industry</option>
-                                    <option value="currency">Currency</option>
-                                    <option value="country">Exchange</option>
-                                </select>
+                            <select id="pie-group-by" class="form-select form-select-sm bg-dark text-white border-secondary" style="width: auto; font-size: 0.8rem;">
+                                <option value="shortname">Asset</option>
+                                <option value="industry">Industry</option>
+                                <option value="currency">Currency</option>
+                                <option value="country">Exchange</option>
+                            </select>
+
+                            <div class="bg-grey-subtle rounded p-3 my-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="text-white m-0" style="font-size: 1.1rem; font-weight: 500;">Weights Allocation</h5>
+                                </div>
+                                <div id="portfolio-pie-chart" style="min-height: 280px; width: 100%;"></div>
                             </div>
-                            
-                            <div id="portfolio-pie-chart" style="min-height: 280px; width: 100%;"></div>
+
+                            <div class="bg-grey-subtle rounded p-3 my-3 mt-4">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="text-white m-0" style="font-size: 1.1rem; font-weight: 500;">Simulation Allocation</h5>
+                                </div>
+                                <div id="simulation-pie-chart" style="min-height: 280px; width: 100%;"></div>
+                            </div>
                         </div>
                         
                         {{ SimulationPanel(initial_cash, leverage_limit) }}
@@ -433,6 +442,7 @@
             const RETURNS_TS = {{ returns_ts | tojson }}; 
             const SIM_METRICS_TS = {{ sim_metrics | tojson }};
             const SIM_NAV_TS = {{ sim_nav | tojson }};
+            const SIM_WEIGHTS_TS = {{ sim_positions | tojson }};
             const PREVIEW_DATA = {{ preview_data | tojson }};
             const TICKER_TO_NAME = {{ ticker_to_name | tojson }};
             const tickers = {{ tickers | tojson }};
@@ -440,6 +450,7 @@
 
         <script>
             window.portfolioWeightsData = {{ positions | tojson if positions else '[]' }};
+            window.simulationWeightsData = {{ sim_positions | tojson if sim_positions else '[]' }};
         </script>
 
         <script src="/script/index.js"></script>

@@ -215,9 +215,10 @@ def index():
     sim_nav = None
     sim_metrics = None
     sim_nav_ts = None
+    sim_positions = []
 
     if len(simulation) > 0:
-        sim_nav, sim_metrics = simulate(
+        sim_nav, sim_metrics, sim_positions = simulate(
             selected_data, simulation, initial_cash, leverage)
         
         sim_nav_ts = [
@@ -309,7 +310,8 @@ def index():
         sim_metrics=sim_metrics,
         preview_data=preview_data, 
         ticker_to_name = ttn, 
-        name_to_timer = ntt
+        name_to_timer = ntt,
+        sim_positions=sim_positions
     ))
     resp.set_cookie("base_portfolio", json.dumps(selected_data))
     return resp
