@@ -25,10 +25,14 @@ data/
 flask_session/
 notebooks/
 
-.*.db
+
+*.db
+
 app.db
 market.db
 market_minute.db
+market_copy.db
+market_minute_copy.db
 market_copy.db
 small_test.py
 

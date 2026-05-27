@@ -5,6 +5,8 @@ import awswrangler as wr
 
 from click import clear
 import pandas as pd
+
+import time
 import numpy as np
 import requests
 import json
@@ -164,6 +166,149 @@ class Market:
         with Session(engine) as session:
             result = session.scalars(stmt).all()
             return result
+
+
+
+    @classmethod
+    def populate_day_db(cls, chunk_days: int = 180, batch_size: int = 5000):
+        """
+        Populate the database with historical data backward to Jan 3, 2000.
+        Dynamically queries DB to find end_date and inspects yf.shared._ERRORS for 429s.
+        """
+        print("Started backwards population of DB...")
+        
+        target_start_date = datetime(2000, 1, 3).date()
+        
+        tickers = list(cls.get_traded_assets_meta())
+        if not tickers:
+            print("No tickers found in TickerMeta to populate.")
+            return
+
+        last_queried_end_date = None
+
+        # 1. Dynamically query the earliest date currently in the DB
+        stmt = select(func.min(DB.date))
+        with Session(engine) as session:
+            earliest_db_date = session.scalar(stmt)
+            
+        if earliest_db_date:
+            queried_end_date = pd.to_datetime(earliest_db_date).date()
+        else:
+            queried_end_date = datetime.now().date()
+            print(f"DB is currently empty. Starting backward fill from today: {queried_end_date}")
+
+        # Fallback check to avoid an infinite loop if no data was inserted in the previous chunk
+        if last_queried_end_date and queried_end_date >= last_queried_end_date:
+            print("DB minimum date didn't change (e.g., no data returned). Forcing step backwards.")
+            current_end_date = current_start_date 
+        else:
+            current_end_date = queried_end_date
+            
+        last_queried_end_date = current_end_date
+
+        # Check if we have reached our target
+        if current_end_date <= target_start_date:
+            print("Database is successfully populated back to the target start date.")
+            return
+
+        current_start_date = max(target_start_date, current_end_date - timedelta(days=chunk_days))
+        print(f"Fetching chunk from {current_start_date} to {current_end_date}...")
+
+        # Clear yfinance errors before download so we only see fresh errors
+        yf.shared._ERRORS.clear()
+        
+        try:
+            yfinance_data_output = yf.download(
+                tickers=tickers,
+                start=current_start_date,
+                end=current_end_date,
+                interval=DAY_GRANULARITY,
+                group_by="ticker",
+                progress=False,
+                threads=yf_threads
+            )
+        except Exception as e:
+            # Catch any hard exceptions thrown by the download wrapper
+            if "rate limit" in str(e).lower() or "429" in str(e):
+                print(f"API Rate Limit hit (Hard Exception): {e}. Stopping.")
+            else:
+                raise
+
+        # 2. Check for soft-caught Rate Limit errors in yfinance internals
+        
+
+        rows = []
+        if yfinance_data_output is not None and not yfinance_data_output.empty:
+            if isinstance(yfinance_data_output.columns, pd.MultiIndex):
+                if "Close" in yfinance_data_output.columns.get_level_values(0):
+                    close = yfinance_data_output["Close"]
+                    for t in close.columns:
+                        s = close[t].dropna()
+                        if not s.empty:
+                            rows.append(pd.DataFrame({
+                                "ticker": t, 
+                                "date": s.index, 
+                                "price_close": s.values,
+                                "open": yfinance_data_output["Open"][t].loc[s.index].values,
+                                "high": yfinance_data_output["High"][t].loc[s.index].values,
+                                "low": yfinance_data_output["Low"][t].loc[s.index].values,
+                                "volume": yfinance_data_output["Volume"][t].loc[s.index].values
+                            }))
+                else:
+                    for t in tickers:
+                        try:
+                            s = yfinance_data_output[t]["Close"].dropna()
+                        except (KeyError, Exception):
+                            continue
+                        if not s.empty:
+                            rows.append(pd.DataFrame({
+                                "ticker": t, 
+                                "date": s.index, 
+                                "price_close": s.values,
+                                "open": yfinance_data_output[t]["Open"].loc[s.index].values,
+                                "high": yfinance_data_output[t]["High"].loc[s.index].values,
+                                "low": yfinance_data_output[t]["Low"].loc[s.index].values,
+                                "volume": yfinance_data_output[t]["Volume"].loc[s.index].values
+                            }))
+            else:
+                if "Close" in yfinance_data_output.columns:
+                    s = yfinance_data_output["Close"].dropna()
+                    if not s.empty:
+                        rows.append(pd.DataFrame({
+                            "ticker": tickers[0], 
+                            "date": s.index, 
+                            "price_close": s.values,
+                            "open": yfinance_data_output["Open"].loc[s.index].values,
+                            "high": yfinance_data_output["High"].loc[s.index].values,
+                            "low": yfinance_data_output["Low"].loc[s.index].values,
+                            "volume": yfinance_data_output["Volume"].loc[s.index].values
+                        }))
+
+        # 3. Insert what we managed to fetch
+        if rows:
+            df_bars = pd.concat(rows, ignore_index=True)
+            df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None)
+
+            records = df_bars.to_dict(orient="records")
+            inserted = 0
+
+            with Session(engine) as session:
+                for i in range(0, len(records), batch_size):
+                    batch = records[i:i + batch_size]
+                    stmt = (
+                        insert(DB)
+                        .values(batch)
+                        .on_conflict_do_nothing(index_elements=["ticker", "date"])
+                    )
+                    result = session.execute(stmt)
+                    inserted += result.rowcount or 0
+                session.commit()
+
+            print(f"Successfully inserted {inserted} rows.")
+        else:
+            print("No valid price data parsed in this chunk.")
+
+           
 
     @classmethod
     def load_from_csv(cls, path: str, batch_size: int = 5_000) -> int:
