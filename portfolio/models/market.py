@@ -547,8 +547,8 @@ class Market:
 
 
         if GRANULARITY == MINUTE_GRANULARITY:
-            # 1. ALWAYS fetch a rolling 7-day window for minute data
-            start_dt = pd.to_datetime(today - timedelta(days=7))
+            # 1. ALWAYS fetch a rolling 3-day window for minute data
+            start_dt = pd.to_datetime(today - timedelta(days=3))
             end_dt_excl = pd.to_datetime(today + timedelta(days=1)) # Include up to right now
         else:
             # 2. Daily data continues to rely on the latest DB date
@@ -743,7 +743,7 @@ class Market:
 
         
         if GRANULARITY == MINUTE_GRANULARITY:
-            start_dt = pd.to_datetime(today - timedelta(days=7))
+            start_dt = pd.to_datetime(today - timedelta(days=3))
             end_dt_excl = pd.to_datetime(today + timedelta(days=1)) 
         else:
             latest_db_date = cls.get_latest_forex_date_in_db()
@@ -792,7 +792,15 @@ class Market:
                 for t in close.columns:
                     s = close[t].dropna()
                     if not s.empty:
-                        rows.append(pd.DataFrame({"ticker": t, "date": s.index, "price_close": s.values}))
+                        rows.append(pd.DataFrame({
+                            "ticker": t, 
+                            "date": s.index, 
+                            "price_close": s.values,
+                            "open": yfinance_data_output["Open"][t].loc[s.index].values if isinstance(yfinance_data_output.columns, pd.MultiIndex) else yfinance_data_output["Open"].loc[s.index].values,
+                            "high": yfinance_data_output["High"][t].loc[s.index].values if isinstance(yfinance_data_output.columns, pd.MultiIndex) else yfinance_data_output["High"].loc[s.index].values,
+                            "low": yfinance_data_output["Low"][t].loc[s.index].values if isinstance(yfinance_data_output.columns, pd.MultiIndex) else yfinance_data_output["Low"].loc[s.index].values,
+                            "volume": yfinance_data_output["Volume"][t].loc[s.index].values if isinstance(yfinance_data_output.columns, pd.MultiIndex) else yfinance_data_output["Volume"].loc[s.index].values
+                        }))
             else:
                 for t in cls.FOREX_PAIRS:
                     try:
