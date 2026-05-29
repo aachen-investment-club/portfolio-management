@@ -28,7 +28,7 @@ class Metrics:
             end_date = pd.Timestamp(end_date)
             data = data.loc[data.index <= end_date]
 
-        return Metrics.get_daily_returns(data['Rate'])
+        return Metrics.get_daily_log_returns(data['Rate'])
 
     @staticmethod
     def get_portfolio_weights(
@@ -72,20 +72,23 @@ class Metrics:
         return annual_vol
 
     @staticmethod
-    def get_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0, 
+    def get_sharpe_ratio(returns: pd.Series, risk_free_rate: float = 0.0,
                          periods_per_year: int = 252) -> float:
-        # normalize the annual risk free rate as per the number of trading days in a year
+        """
+        Args:
+            returns: Series of daily log returns.
+            risk_free_rate: Continuously compounded annual risk-free rate (default 0).
+        """
         if returns.empty:
             raise EmptyPriceException("")
-        # must check
         norm_risk_free_rate = risk_free_rate / periods_per_year
         excess_returns = returns - norm_risk_free_rate
         excess_returns_mean = excess_returns.mean()
         excess_returns_std = excess_returns.std()
-        if excess_returns_std == 0:  # check for division by zero error
+        if excess_returns_std == 0:
             return float('nan')
         sharpe_ratio_annual = (excess_returns_mean / excess_returns_std) \
-                * np.sqrt(1 / periods_per_year)
+                * np.sqrt(periods_per_year)
         return sharpe_ratio_annual
 
     @staticmethod
@@ -134,9 +137,9 @@ class Metrics:
         Alpha = Rp - [Rf + Beta * (Rm - Rf)]
 
         Args:
-            portfolio_returns: Series of daily portfolio returns.
-            benchmark_returns: Series of daily benchmark (e.g., SPY) returns.
-            risk_free_rate: The annual risk-free rate (e.g., 0.04 for 4%). Defaults to 0.
+            portfolio_returns: Series of daily log returns.
+            benchmark_returns: Series of daily log returns of the benchmark (e.g., SPY).
+            risk_free_rate: Continuously compounded annual risk-free rate (default 0).
         """
         # Align data
         df = pd.concat([portfolio_returns, benchmark_returns], axis=1).dropna()
@@ -211,8 +214,8 @@ class Metrics:
         # percentile return at the chosen confidence (this will typically be negative)
         var_return = mu_h + z * sigma_h
 
-        # VaR as a positive loss amount
-        var_loss = -var_return * float(portfolio_value)
+        # log-normal VaR: terminal value = V·exp(r_var), so loss = V·(1 - exp(r_var))
+        var_loss = float(portfolio_value) * (1.0 - np.exp(var_return))
 
         # ensure non-negative
         return float(max(var_loss, 0.0))

@@ -5,6 +5,8 @@ import awswrangler as wr
 
 from click import clear
 import pandas as pd
+
+import time
 import numpy as np
 import requests
 import json
@@ -46,14 +48,28 @@ MINUTE_GRANULARITY = "1m"
 DAY_GRANULARITY= "1d"
 SEVEN_DAYS = timedelta(days=7)
 
+
 DB_GRANULARITY = os.getenv("DB_GRANULARITY", "day").lower()
 DB = MarketMinuteDB if DB_GRANULARITY == "minute" else MarketDB
+
 FOREXDB= ForexMinuteDB if DB_GRANULARITY == "minute" else ForexDayDB
 GRANULARITY = MINUTE_GRANULARITY if DB_GRANULARITY == "minute" else DAY_GRANULARITY
 
 MINUTE_DATA_SOURCE =  os.getenv("MINUTE_DATA_SOURCE", "day").lower()
 MINUTE_DATA_SOURCE_LOCAL = "local"
 MINUTE_DATA_SOURCE_ATHENA = "athena"
+
+
+
+threads_env = os.getenv("YF_THREADS", "0")
+
+try:
+    threads_count = int(threads_env)
+    yf_threads = False if threads_count <= 0 else threads_count
+except ValueError:
+    yf_threads = False
+
+print(f"using {yf_threads if yf_threads else "no"} threads for yfinance")
 
 
 class Market:
@@ -151,50 +167,367 @@ class Market:
             result = session.scalars(stmt).all()
             return result
 
+
+
     @classmethod
-    def load_from_csv(cls, path: str, batch_size: int = 5_000) -> int:
+    def populate_day_db(cls, chunk_days: int = 180, batch_size: int = 5000):
+        """
+        Populate the database with historical data backward to Jan 3, 2000.
+        Dynamically queries DB to find end_date and inspects yf.shared._ERRORS for 429s.
+        """
+        print("Started backwards population of DB...")
         
+        target_start_date = datetime(2000, 1, 3).date()
+        
+        tickers = list(cls.get_traded_assets_meta())
+        if not tickers:
+            print("No tickers found in TickerMeta to populate.")
+            return
+
+        last_queried_end_date = None
+
+        # 1. Dynamically query the earliest date currently in the DB
+        stmt = select(func.min(DB.date))
+        with Session(engine) as session:
+            earliest_db_date = session.scalar(stmt)
+            
+        if earliest_db_date:
+            queried_end_date = pd.to_datetime(earliest_db_date).date()
+        else:
+            queried_end_date = datetime.now().date()
+            print(f"DB is currently empty. Starting backward fill from today: {queried_end_date}")
+
+        # Fallback check to avoid an infinite loop if no data was inserted in the previous chunk
+        if last_queried_end_date and queried_end_date >= last_queried_end_date:
+            print("DB minimum date didn't change (e.g., no data returned). Forcing step backwards.")
+            current_end_date = current_start_date 
+        else:
+            current_end_date = queried_end_date
+            
+        last_queried_end_date = current_end_date
+
+        # Check if we have reached our target
+        if current_end_date <= target_start_date:
+            print("Database is successfully populated back to the target start date.")
+            return
+
+        current_start_date = max(target_start_date, current_end_date - timedelta(days=chunk_days))
+        print(f"Fetching chunk from {current_start_date} to {current_end_date}...")
+
+        # Clear yfinance errors before download so we only see fresh errors
+        yf.shared._ERRORS.clear()
+        
+        try:
+            yfinance_data_output = yf.download(
+                tickers=tickers,
+                start=current_start_date,
+                end=current_end_date,
+                interval=DAY_GRANULARITY,
+                group_by="ticker",
+                progress=False,
+                threads=yf_threads
+            )
+        except Exception as e:
+            # Catch any hard exceptions thrown by the download wrapper
+            if "rate limit" in str(e).lower() or "429" in str(e):
+                print(f"API Rate Limit hit (Hard Exception): {e}. Stopping.")
+            else:
+                raise
+
+        # 2. Check for soft-caught Rate Limit errors in yfinance internals
+        
+
+        rows = []
+        if yfinance_data_output is not None and not yfinance_data_output.empty:
+            if isinstance(yfinance_data_output.columns, pd.MultiIndex):
+                if "Close" in yfinance_data_output.columns.get_level_values(0):
+                    close = yfinance_data_output["Close"]
+                    for t in close.columns:
+                        s = close[t].dropna()
+                        if not s.empty:
+                            rows.append(pd.DataFrame({
+                                "ticker": t, 
+                                "date": s.index, 
+                                "price_close": s.values,
+                                "open": yfinance_data_output["Open"][t].loc[s.index].values,
+                                "high": yfinance_data_output["High"][t].loc[s.index].values,
+                                "low": yfinance_data_output["Low"][t].loc[s.index].values,
+                                "volume": yfinance_data_output["Volume"][t].loc[s.index].values
+                            }))
+                else:
+                    for t in tickers:
+                        try:
+                            s = yfinance_data_output[t]["Close"].dropna()
+                        except (KeyError, Exception):
+                            continue
+                        if not s.empty:
+                            rows.append(pd.DataFrame({
+                                "ticker": t, 
+                                "date": s.index, 
+                                "price_close": s.values,
+                                "open": yfinance_data_output[t]["Open"].loc[s.index].values,
+                                "high": yfinance_data_output[t]["High"].loc[s.index].values,
+                                "low": yfinance_data_output[t]["Low"].loc[s.index].values,
+                                "volume": yfinance_data_output[t]["Volume"].loc[s.index].values
+                            }))
+            else:
+                if "Close" in yfinance_data_output.columns:
+                    s = yfinance_data_output["Close"].dropna()
+                    if not s.empty:
+                        rows.append(pd.DataFrame({
+                            "ticker": tickers[0], 
+                            "date": s.index, 
+                            "price_close": s.values,
+                            "open": yfinance_data_output["Open"].loc[s.index].values,
+                            "high": yfinance_data_output["High"].loc[s.index].values,
+                            "low": yfinance_data_output["Low"].loc[s.index].values,
+                            "volume": yfinance_data_output["Volume"].loc[s.index].values
+                        }))
+
+        # 3. Insert what we managed to fetch
+        if rows:
+            df_bars = pd.concat(rows, ignore_index=True)
+            df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None)
+
+            records = df_bars.to_dict(orient="records")
+            inserted = 0
+
+            with Session(engine) as session:
+                for i in range(0, len(records), batch_size):
+                    batch = records[i:i + batch_size]
+                    stmt = (
+                        insert(DB)
+                        .values(batch)
+                        .on_conflict_do_nothing(index_elements=["ticker", "date"])
+                    )
+                    result = session.execute(stmt)
+                    inserted += result.rowcount or 0
+                session.commit()
+
+            print(f"Successfully inserted {inserted} rows.")
+        else:
+            print("No valid price data parsed in this chunk.")
+
+
+    @classmethod
+    def populate_forex_day_db(cls, chunk_days: int = 180, batch_size: int = 5000):
+        """
+        Populate the forex database with historical data backward to Jan 3, 2000.
+        Dynamically queries FOREXDB to find end_date and inspects yf.shared._ERRORS for 429s.
+        """
+        print("Started backwards population of Forex DB...")
+        
+        target_start_date = datetime(2000, 1, 3).date()
+        
+        tickers = cls.FOREX_PAIRS
+        if not tickers:
+            print("No forex pairs defined in cls.FOREX_PAIRS.")
+            return
+
+        last_queried_end_date = None
+
+        # 1. Dynamically query the earliest date currently in the Forex DB
+        stmt = select(func.min(FOREXDB.date))
+        with Session(engine) as session:
+            earliest_db_date = session.scalar(stmt)
+            
+        if earliest_db_date:
+            queried_end_date = pd.to_datetime(earliest_db_date).date()
+        else:
+            queried_end_date = datetime.now().date()
+            print(f"Forex DB is currently empty. Starting backward fill from today: {queried_end_date}")
+
+        # Fallback check to avoid an infinite loop if no data was inserted in the previous chunk
+        if last_queried_end_date and queried_end_date >= last_queried_end_date:
+            print("Forex DB minimum date didn't change (e.g., no data returned). Forcing step backwards.")
+            # Note: current_start_date needs to be defined from the prior loop if making this a while loop
+            current_end_date = queried_end_date - timedelta(days=chunk_days)
+        else:
+            current_end_date = queried_end_date
+            
+        last_queried_end_date = current_end_date
+
+        # Check if we have reached our target
+        if current_end_date <= target_start_date:
+            print("Forex Database is successfully populated back to the target start date.")
+            return
+
+        current_start_date = max(target_start_date, current_end_date - timedelta(days=chunk_days))
+        print(f"Fetching forex chunk from {current_start_date} to {current_end_date}...")
+
+        # Clear yfinance errors before download so we only see fresh errors
+        yf.shared._ERRORS.clear()
+        
+        try:
+            yfinance_data_output = yf.download(
+                tickers=tickers,
+                start=current_start_date,
+                end=current_end_date,
+                interval=DAY_GRANULARITY,
+                group_by="ticker",
+                progress=False,
+                threads=yf_threads
+            )
+        except Exception as e:
+            # Catch any hard exceptions thrown by the download wrapper
+            if "rate limit" in str(e).lower() or "429" in str(e):
+                print(f"API Rate Limit hit (Hard Exception): {e}. Stopping.")
+            else:
+                raise
+
+        # 2. Check for soft-caught Rate Limit errors in yfinance internals
+        rows = []
+        if yfinance_data_output is not None and not yfinance_data_output.empty:
+            if isinstance(yfinance_data_output.columns, pd.MultiIndex):
+                if "Close" in yfinance_data_output.columns.get_level_values(0):
+                    close = yfinance_data_output["Close"]
+                    for t in close.columns:
+                        s = close[t].dropna()
+                        if not s.empty:
+                            rows.append(pd.DataFrame({
+                                "ticker": t, 
+                                "date": s.index, 
+                                "price_close": s.values,
+                                "open": yfinance_data_output["Open"][t].loc[s.index].values,
+                                "high": yfinance_data_output["High"][t].loc[s.index].values,
+                                "low": yfinance_data_output["Low"][t].loc[s.index].values,
+                                "volume": yfinance_data_output["Volume"][t].loc[s.index].values
+                            }))
+                else:
+                    for t in tickers:
+                        try:
+                            s = yfinance_data_output[t]["Close"].dropna()
+                        except (KeyError, Exception):
+                            continue
+                        if not s.empty:
+                            rows.append(pd.DataFrame({
+                                "ticker": t, 
+                                "date": s.index, 
+                                "price_close": s.values,
+                                "open": yfinance_data_output[t]["Open"].loc[s.index].values,
+                                "high": yfinance_data_output[t]["High"].loc[s.index].values,
+                                "low": yfinance_data_output[t]["Low"].loc[s.index].values,
+                                "volume": yfinance_data_output[t]["Volume"].loc[s.index].values
+                            }))
+            else:
+                if "Close" in yfinance_data_output.columns:
+                    s = yfinance_data_output["Close"].dropna()
+                    if not s.empty:
+                        rows.append(pd.DataFrame({
+                            "ticker": tickers[0], 
+                            "date": s.index, 
+                            "price_close": s.values,
+                            "open": yfinance_data_output["Open"].loc[s.index].values,
+                            "high": yfinance_data_output["High"].loc[s.index].values,
+                            "low": yfinance_data_output["Low"].loc[s.index].values,
+                            "volume": yfinance_data_output["Volume"].loc[s.index].values
+                        }))
+
+        # 3. Insert what we managed to fetch
+        if rows:
+            df_bars = pd.concat(rows, ignore_index=True)
+            df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None)
+
+            records = df_bars.to_dict(orient="records")
+            inserted = 0
+
+            with Session(engine) as session:
+                for i in range(0, len(records), batch_size):
+                    batch = records[i:i + batch_size]
+                    stmt = (
+                        insert(FOREXDB)
+                        .values(batch)
+                        .on_conflict_do_nothing(index_elements=["ticker", "date"])
+                    )
+                    result = session.execute(stmt)
+                    inserted += result.rowcount or 0
+                session.commit()
+
+            print(f"Successfully inserted {inserted} Forex rows.")
+        else:
+            print("No valid forex price data parsed in this chunk.")
+
+
+
+    @classmethod
+    def load_from_csv(cls, path: str, table_type: str = "market", batch_size: int = 5_000) -> int:
+        """
+        Loads data from a CSV file into the database.
+        
+        Args:
+            path (str): The path to the CSV file.
+            table_type (str): Either "market" or "forex" to determine the target table.
+            batch_size (int): Number of rows to process and insert at a time.
+        """
+        # 1. Determine target database model
+        if table_type.lower() == "forex":
+            target_db = FOREXDB
+        elif table_type.lower() == "market":
+            target_db = DB
+        else:
+            raise ValueError("table_type must be either 'market' or 'forex'")
+            
         total_inserted = 0
 
-
         with Session(engine) as session:
-
             with pd.read_csv(path, chunksize=batch_size) as reader: 
                 for chunk in reader:
                     """
-                    due to production memory constraints it is important to 
+                    Due to production memory constraints it is important to 
                     read the csv file in chunks!
                     """
-
-                    print(total_inserted)
+                    print(f"[{table_type.upper()}] Rows inserted so far: {total_inserted}")
+                    
+                    # 2. Rename columns to match database schema (capturing OHLCV)
                     chunk = chunk.rename(columns={
                         "Ticker": "ticker",
                         "Date": "date",
                         "Price Close": "price_close",
+                        "Open": "open",
+                        "High": "high",
+                        "Low": "low",
+                        "Volume": "volume"
                     })
 
-                    chunk["date"] = pd.to_datetime(chunk["date"]).dt.floor("D")
+                    # 3. Safely parse dates 
+                    chunk["date"] = pd.to_datetime(chunk["date"])
+                    
+                    # Floor to day only if we are operating in daily granularity
+                    if GRANULARITY == DAY_GRANULARITY:
+                        chunk["date"] = chunk["date"].dt.floor("D")
 
+                    # 4. Clean duplicates
                     chunk = chunk.drop_duplicates(subset=["ticker", "date"], keep="last")
+                    
+                    # Drop any columns that were in the CSV but aren't in our DB schema mapping
+                    # (e.g. if an unnamed index column snuck in)
+                    valid_cols = ["ticker", "date", "price_close", "open", "high", "low", "volume"]
+                    existing_cols = [col for col in valid_cols if col in chunk.columns]
+                    chunk = chunk[existing_cols]
 
                     records = chunk.to_dict(orient="records")
 
                     if not records:
                         continue
 
+                    # 5. Insert into the dynamically selected table
                     stmt = (
-                        insert(DB)
+                        insert(target_db)
                         .values(records)
                         .on_conflict_do_nothing(index_elements=["ticker", "date"])
                     )
-
 
                     result = session.execute(stmt)
                     total_inserted += result.rowcount or 0
 
                     session.commit()
 
-        return total_inserted 
+        print(f"Finished loading {path}. Total rows inserted: {total_inserted}")
+        return total_inserted
+
+
+
+
 
     @classmethod
     def get_price(cls, ticker: str, date: Union[datetime.date, datetime])->np.float64: 
@@ -381,27 +714,33 @@ class Market:
 
         target_end_date = calendar[-1].date  
 
-        if GRANULARITY==MINUTE_GRANULARITY and  cls.check_empty(): 
-            #: fetch last weeks data in case of minute level
-            latest_db_date = today-timedelta(days  = 7)
-
-        else: 
-            #: fetch the latest date normally. the case for day level is handled elsewhere in __main__.
-            latest_db_date = cls.get_latest_date_in_db()
 
 
         #tickers = list(cls.get_traded_assets())
         tickers = list(cls.get_traded_assets_meta())
 
 
-        start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
-        end_dt_excl = pd.to_datetime(target_end_date) + pd.Timedelta(days=1)
-
-        # For minute granularity, limit to 7 days due to yfinance restrictions
         if GRANULARITY == MINUTE_GRANULARITY:
-            max_start = pd.to_datetime(yesterday - timedelta(days=6))
-            start_dt = max(start_dt, max_start)
-
+            # 1. ALWAYS fetch a rolling 2-day window for minute data
+            start_dt = pd.to_datetime(today - timedelta(days=2))
+            end_dt_excl = pd.to_datetime(today + timedelta(days=1)) # Include up to right now
+        else:
+            # 2. Daily data continues to rely on the latest DB date
+            latest_db_date = cls.get_latest_date_in_db()
+            
+            if latest_db_date is None:
+                start_dt = pd.to_datetime(today - timedelta(days=365)) # fallback
+            else:
+                start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
+                
+            end_dt_excl = pd.to_datetime(target_end_date) + pd.Timedelta(days=1)
+            
+            # Safety check for daily data
+            if start_dt >= end_dt_excl:
+                print("Daily database is already up to date for this period.")
+                return
+        
+        
 
         yfinance_data_output = yf.download(
             tickers=tickers,
@@ -410,21 +749,33 @@ class Market:
             interval=GRANULARITY,
             group_by="ticker",
             progress=False,
+            threads = yf_threads
         )
 
         if yfinance_data_output is None or yfinance_data_output.empty:
             print("yfinance did not return anything")
             return
 
+
         rows = []
 
+
         if isinstance(yfinance_data_output.columns, pd.MultiIndex):
+
             if "Close" in yfinance_data_output.columns.get_level_values(0):
                 close = yfinance_data_output["Close"]
                 for t in close.columns:
                     s = close[t].dropna()
                     if not s.empty:
-                        rows.append(pd.DataFrame({"ticker": t, "date": s.index, "price_close": s.values}))
+                        rows.append(pd.DataFrame({
+                            "ticker": t, 
+                            "date": s.index, 
+                            "price_close": s.values,
+                            "open": yfinance_data_output["Open"][t].loc[s.index].values,
+                            "high": yfinance_data_output["High"][t].loc[s.index].values,
+                            "low": yfinance_data_output["Low"][t].loc[s.index].values,
+                            "volume": yfinance_data_output["Volume"][t].loc[s.index].values
+                            }))
             else:
                 for t in tickers:
                     try:
@@ -432,12 +783,28 @@ class Market:
                     except Exception:
                         continue
                     if not s.empty:
-                        rows.append(pd.DataFrame({"ticker": t, "date": s.index, "price_close": s.values}))
+                        rows.append(pd.DataFrame({
+                            "ticker": t, 
+                            "date": s.index, 
+                            "price_close": s.values,
+                            "open": yfinance_data_output[t]["Open"].loc[s.index].values,
+                            "high": yfinance_data_output[t]["High"].loc[s.index].values,
+                            "low": yfinance_data_output[t]["Low"].loc[s.index].values,
+                            "volume": yfinance_data_output[t]["Volume"].loc[s.index].values
+                            }))
         else:
             if "Close" in yfinance_data_output.columns:
                 s = yfinance_data_output["Close"].dropna()
                 if not s.empty:
-                    rows.append(pd.DataFrame({"ticker": tickers[0], "date": s.index, "price_close": s.values}))
+                    rows.append(pd.DataFrame({
+                        "ticker": tickers[0], 
+                        "date": s.index, 
+                        "price_close": s.values,
+                        "open": yfinance_data_output["Open"].loc[s.index].values,
+                        "high": yfinance_data_output["High"].loc[s.index].values,
+                        "low": yfinance_data_output["Low"].loc[s.index].values,
+                        "volume": yfinance_data_output["Volume"].loc[s.index].values
+                        }))
 
 
         df_bars = pd.concat(rows, ignore_index=True)
@@ -445,17 +812,25 @@ class Market:
 
         df_bars = df_bars[
             (df_bars["date"] >= start_dt) &
-            (df_bars["date"] <= pd.to_datetime(target_end_date))
+            (df_bars["date"] <  pd.to_datetime(end_dt_excl))
         ]
 
+        if GRANULARITY == MINUTE_GRANULARITY: 
+
+            df_bars["month"] = df_bars[DATE].dt.strftime('%Y-%m')
 
         if GRANULARITY == MINUTE_GRANULARITY and MINUTE_DATA_SOURCE == "athena":
+            print("DEBUG: started athena update (minute level)")
+
             s3_bucket = os.getenv("ATHENA_BUCKET_BASE")
             glue_db = os.getenv("GLUE_DB")
             table_name = os.getenv("ATHENA_MINUTE_TABLE")
             
             # Create partition column
-            df_bars['month'] = df_bars['date'].dt.strftime('%Y-%m')
+            print(df_bars.head())
+            print(len(df_bars))
+
+
             affected_months = df_bars['month'].unique()
 
             
@@ -475,13 +850,15 @@ class Market:
                     combined_df = pd.concat([existing_data, new_month_data])
                 else:
                     combined_df = new_month_data
-                    
+
                 combined_df = combined_df.drop_duplicates(subset=["ticker", "date"], keep="last")
+                print("inside the if: ")
+                print(combined_df)
                 
                 # 3. Overwrite the S3 partition (Maintains 3 buckets)
                 wr.s3.to_parquet(
                     df=combined_df,
-                    path=f"{s3_bucket}/market_minute/",
+                    path=f"{s3_bucket}/portfolio_management_developer_minute/",
                     dataset=True,
                     database=glue_db,
                     table=table_name,
@@ -539,18 +916,21 @@ class Market:
 
         latest_db_date = cls.get_latest_forex_date_in_db()
         
-        
-        if latest_db_date and latest_db_date >= yesterday:
-            print("forex already up to date")
-            return
 
-        if cls.check_forex_empty(): 
-            if GRANULARITY == MINUTE_GRANULARITY:
-                #: fetch last weeks data in case of minute level
-                start_dt = pd.to_datetime(today - timedelta(days=7))
-            #: case for day level handled elsewhere
-            else: 
-                stmt = select(func.min(DB.date))
+        
+        if GRANULARITY == MINUTE_GRANULARITY:
+            start_dt = pd.to_datetime(today - timedelta(days=2))
+            end_dt_excl = pd.to_datetime(today + timedelta(days=1)) 
+        else:
+            latest_db_date = cls.get_latest_forex_date_in_db()
+            
+            if latest_db_date and latest_db_date >= yesterday:
+                print("Forex daily data already up to date")
+                return
+                
+            if cls.check_forex_empty(): 
+                # (Note: I changed DB.date to FOREXDB.date here for correctness)
+                stmt = select(func.min(FOREXDB.date))
                 with Session(engine) as session:
                     earliest_db_date = session.scalar(stmt)
                 
@@ -558,18 +938,13 @@ class Market:
                     start_dt = pd.to_datetime(earliest_db_date)
                 else:
                     start_dt = pd.to_datetime(yesterday - timedelta(days=365))
-
-
-        else: 
-            start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
+            else: 
+                start_dt = pd.to_datetime(latest_db_date + timedelta(days=1))
             
-            # Enforce 7-day max for minute data if DB hasn't updated in a while
-            if GRANULARITY == MINUTE_GRANULARITY:
-                max_start = pd.to_datetime(today - timedelta(days=7))
-                start_dt = max(start_dt, max_start)
-        
-        end_dt_excl = pd.to_datetime(yesterday) + pd.Timedelta(days=1)
-        
+            end_dt_excl = pd.to_datetime(yesterday) + pd.Timedelta(days=1)
+            
+            if start_dt >= end_dt_excl:
+                return
 
         yfinance_data_output = yf.download(
             tickers=cls.FOREX_PAIRS,
@@ -578,6 +953,7 @@ class Market:
             interval=GRANULARITY,
             group_by="ticker",
             progress=False,
+            threads = yf_threads
         )
 
         if yfinance_data_output is None or yfinance_data_output.empty:
@@ -592,7 +968,15 @@ class Market:
                 for t in close.columns:
                     s = close[t].dropna()
                     if not s.empty:
-                        rows.append(pd.DataFrame({"ticker": t, "date": s.index, "price_close": s.values}))
+                        rows.append(pd.DataFrame({
+                            "ticker": t, 
+                            "date": s.index, 
+                            "price_close": s.values,
+                            "open": yfinance_data_output["Open"][t].loc[s.index].values if isinstance(yfinance_data_output.columns, pd.MultiIndex) else yfinance_data_output["Open"].loc[s.index].values,
+                            "high": yfinance_data_output["High"][t].loc[s.index].values if isinstance(yfinance_data_output.columns, pd.MultiIndex) else yfinance_data_output["High"].loc[s.index].values,
+                            "low": yfinance_data_output["Low"][t].loc[s.index].values if isinstance(yfinance_data_output.columns, pd.MultiIndex) else yfinance_data_output["Low"].loc[s.index].values,
+                            "volume": yfinance_data_output["Volume"][t].loc[s.index].values if isinstance(yfinance_data_output.columns, pd.MultiIndex) else yfinance_data_output["Volume"].loc[s.index].values
+                        }))
             else:
                 for t in cls.FOREX_PAIRS:
                     try:
@@ -615,14 +999,20 @@ class Market:
         df_bars["date"] = pd.to_datetime(df_bars["date"]).dt.tz_localize(None)
         df_bars = df_bars[
             (df_bars["date"] >= start_dt) &
-            (df_bars["date"] <= pd.to_datetime(yesterday))
+            (df_bars["date"] <end_dt_excl)
         ]
+
+
+        if GRANULARITY == MINUTE_GRANULARITY: 
+
+            df_bars["month"] = df_bars[DATE].dt.strftime('%Y-%m')
+
+
         if GRANULARITY == MINUTE_GRANULARITY and MINUTE_DATA_SOURCE == "athena":
             s3_bucket = os.getenv("ATHENA_BUCKET_BASE")
             glue_db = os.getenv("GLUE_DB")
             table_name = os.getenv("ATHENA_MINUTE_TABLE_FOREX")
             
-            df_bars['month'] = df_bars['date'].dt.strftime('%Y-%m')
             affected_months = df_bars['month'].unique()
 
             print(f"Syncing Forex to Athena. Affected months: {affected_months}")
@@ -647,7 +1037,7 @@ class Market:
                 
                 wr.s3.to_parquet(
                     df=combined_df,
-                    path=f"{s3_bucket}/forex_minute/",
+                    path=f"{s3_bucket}/forex_data_minute/",
                     dataset=True,
                     database=glue_db,
                     table=table_name,
@@ -1008,6 +1398,7 @@ class Market:
                 interval=GRANULARITY,
                 group_by="ticker",
                 progress=False,
+                threads = yf_threads
             )
         except Exception as e:
             raise RuntimeError(f"Failed to download data from yfinance: {e}") from e
