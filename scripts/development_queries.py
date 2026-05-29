@@ -1,3 +1,16 @@
+"""
+you can use this file to run some queries against your selected DB in the .env file. 
+
+
+run this script from the root dir using: 
+
+python scripts/development_queries.py
+"""
+
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from dotenv import load_dotenv
 
@@ -6,7 +19,6 @@ load_dotenv()
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-import os
 # Import your engine and schemas based on the project structure in your snippets
 from portfolio.utils.aws_config import engine
 from portfolio.schemas.market import MarketDB, ForexDayDB, TickerMeta, MarketMinuteDB, ForexMinuteDB

@@ -1,3 +1,19 @@
+"""
+this script makes the db using the old day level schema backwards compatible 
+with the new schema. 
+
+DONT USE THIS IN DEVELOPMENT, only meant for production
+
+
+python scripts/development_queries.py
+"""
+
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+
 import sqlalchemy
 from sqlalchemy import text
 from portfolio.utils.aws_config import engine

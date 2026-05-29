@@ -1,3 +1,14 @@
+"""
+this file is used to migrate the local metadata table into athena. 
+
+only used for admin context. IGNORE THIS SCRIPT. 
+
+
+"""
+
+
+
+
 import os
 import pandas as pd
 import awswrangler as wr

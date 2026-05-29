@@ -1,3 +1,14 @@
+"""
+this populates the athena db using the local minute DB
+
+DO NOT USE THIS SCRIPT. 
+
+
+observation: might have to change the imports for this to run (see the export_day_to_csv.py for example)
+
+"""
+
+
 import os
 import pandas as pd
 import awswrangler as wr

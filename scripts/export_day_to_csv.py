@@ -1,11 +1,27 @@
+"""
+this script can be used to generate csv files containing the data stored in the 
+day level granularity db. 
+
+
+run this script from the root dir using: 
+
+python scripts/export_day_to_csv.py
+
+"""
+
+import sys
 import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+
 import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 # Import engine and DB mappings from your existing module structure
 from portfolio.utils.aws_config import engine
-from portfolio.schemas.market import MarketDB, MarketMinuteDB, ForexDayDB, ForexMinuteDB
+from portfolio.schemas.market import MarketDB,  ForexDayDB 
 
 def export_table_to_csv(db_model, output_filename, chunk_size=5000):
     """
