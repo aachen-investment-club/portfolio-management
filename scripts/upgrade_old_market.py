@@ -5,7 +5,7 @@ with the new schema.
 DONT USE THIS IN DEVELOPMENT, only meant for production
 
 
-python scripts/development_queries.py
+python scripts/upgrade_old_market.py
 """
 
 import sys
