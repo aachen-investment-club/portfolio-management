@@ -1,4 +1,20 @@
+"""
+You can use this script to populate your local minute level 
+database by pulling from athena. 
+
+
+run using: 
+
+python scripts/pull_from_athena.py
+
+"""
+
+import sys
 import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+
 from dotenv import load_dotenv
 import boto3
 import pandas as pd
@@ -12,7 +28,7 @@ from portfolio.schemas.market import Base
 load_dotenv()
 
 boto3.setup_default_session(
-    region_name=os.getenv("AWS_REGION", "us-east-1"),
+    region_name=os.getenv("AWS_REGION", "eu-central-1"),
     aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
     aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
 )
@@ -91,14 +107,14 @@ if __name__ == "__main__":
     sync_athena_to_local(
         athena_table="portfolio_management_developer_minute", 
         local_table="portfolio_management_developer_minute",
-        chunk_size=5000
+        chunk_size=1000
     )
     
     # 3. Restore Forex Data
     sync_athena_to_local(
         athena_table="forex_data_minute", 
         local_table="forex_data_minute",
-        chunk_size=5000
+        chunk_size=1000
     )
     
     print("done")
