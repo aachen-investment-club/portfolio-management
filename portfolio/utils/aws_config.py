@@ -31,10 +31,12 @@ ATHENA_CONN_STR = os.getenv("DB_ATHENA_PATH")
 if DB_GRANULARITY== "minute": 
     if MINUTE_DATA_SOURCE == "athena":
         engine =  create_engine(ATHENA_CONN_STR, echo=False)
-
+        print("using athena minute")
 
     else:  
         engine = create_engine(DB_MINUTE_PATH, echo=False)
+        print("using local minute")
 
 else: 
     engine = create_engine(DB_DAY_PATH, echo=False)
+    print("using local day")

@@ -37,6 +37,7 @@ class TestMarket(unittest.TestCase):
       # Remove the temporary database to keep the container clean
     try:
       if os.path.exists("market.db"):
+        engine.dispose()
         os.remove("market.db")
     except PermissionError:
       # Prevent local tests from failing due to Windows file-locking

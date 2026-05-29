@@ -38,7 +38,7 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "eu-central-1_unKiHP6hh")
 COGNITO_REGION = os.getenv("AWS_REGION", "eu-central-1")
 MINUTE_DATA_SOURCE = os.getenv("MINUTE_DATA_SOURCE", "local")
-
+UPDATE_MARKET_DAY=True if os.getenv("UPDATE_MARKET_DAY", False) =='True' else False
 oauth.register(
   name='oidc',
   authority=f'https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}',
@@ -59,30 +59,48 @@ app.register_blueprint(bp_api)
 
 if __name__ == "__main__":
     chunks_prod = 5000
-    chunks_dev = 10000
+    chunks_dev = 1000 
 
     if Market.check_meta_empty():
-        print("market metadata empty, proceeding with creation")
-        Market.load_ticker_metadata("./data/ticker_metadata.csv", 300)
+        
+            print("market metadata empty, proceeding with creation")
+            Market.load_ticker_metadata("./data/ticker_metadata.csv", 300)
     else:
         print("Market metadata already exists, no need to load from csv")
 
+
+
+
+    if UPDATE_MARKET_DAY: 
+        #: this does a backward fill
+        print("started populating stock market")
+        Market.populate_day_db(500, 500)
+        print("started populating forex market")
+        Market.populate_forex_day_db(500, 500)
+
     if Market.check_empty():
         if DB_GRANULARITY == "day":
-            print("market empty, proceeding with creation (from CSV)")
-            Market.load_from_csv("./data/sp500_close_extended.csv", chunks_dev)
+                #: this does a forward fill
+                print("market empty, proceeding with creation (from CSV)")
+                Market.load_from_csv("./data/market_export.csv","market" , chunks_dev)
 
         elif DB_GRANULARITY == "minute" and MINUTE_DATA_SOURCE=="local":
             #: only update on startup in the local case, never in the athena case. 
             print("market empty, proceeding with creation (from YF)")
             Market.update_market()
+        
     
     if Market.check_forex_empty():
         print("forex empty, proceeding with creation (from YF)")
+
         if not (DB_GRANULARITY == "minute" and MINUTE_DATA_SOURCE=="athena"):
+            if DB_GRANULARITY == "day":
+                Market.load_from_csv("./data/forex_export.csv","forex" , chunks_dev)
+            
             #: this handles granularity automatically.
             #; never update on startup for the athena case. 
             Market.update_forex(chunks_dev)
+        
         
 
     else:
