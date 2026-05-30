@@ -55,7 +55,7 @@ class Portfolio():
                 continue
             value = shares * latest_prices[symbol]
             position_values[symbol] = value
-            total_value += value
+            total_value += abs(value)
 
         if total_value == 0:
             return []
@@ -69,7 +69,7 @@ class Portfolio():
             
             item = {
                 "symbol": symbol,
-                "weight": value / total_value,
+                "weight": abs(value) / total_value,
                 "value": value,
                 "shortname": ttn.get(symbol, symbol),
                 "industry": ticker_details.get("industry"),

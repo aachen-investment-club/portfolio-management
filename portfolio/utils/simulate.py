@@ -68,7 +68,7 @@ def simulate(base_data, trades, initial_cash, leverage):
             "alpha": "N/A",
             "total_value": "N/A",
         }
-        return nav, metrics
+        return nav, metrics, p.get_position_weights()
 
     bench_df = Market.get_us_treasury_bonds()
     bench_df = bench_df[bench_df.index >= nav.index.min()]
@@ -91,4 +91,4 @@ def simulate(base_data, trades, initial_cash, leverage):
         "value_at_risk": f"${Metrics.get_value_at_risk(port_returns, days_horizon=10, CL=0.95, portfolio_value=float(nav.iloc[-1])):.2f}",
     }
 
-    return nav, metrics
+    return nav, metrics, p.get_position_weights()
