@@ -13,11 +13,9 @@ const preview_select = document.getElementById("preview-select");
 const preview_filter = document.getElementById("preview-filter");
 
 
-
-
-
 const SIM_METRICS = SIM_METRICS_TS;
 const SIM_NAV = SIM_NAV_TS;
+const SIM_WEIGHTS = SIM_WEIGHTS_TS;
 
 const data = NAV_TS; 
 
@@ -335,14 +333,21 @@ document.addEventListener("DOMContentLoaded", function() {
     const groupBySelect = document.getElementById("pie-group-by");
     const chartContainer = document.getElementById("portfolio-pie-chart");
 
+	// Grabs the simulation data
+    const simData = window.simulationWeightsData || SIM_WEIGHTS || [];
+	const simChartContainer = document.getElementById("simulation-pie-chart");
+
     // Exit cleanly if we are on a page that doesn't render this chart container
     if (!chartContainer) return;
 
     // Display a clean layout notice if there are zero active stock positions
     if (rawWeightsData.length === 0) {
         chartContainer.innerHTML = '<p class="text-white-50 text-center pt-5 small">No active positions to map.</p>';
-        return;
     }
+
+	if (simData.length === 0) {
+		simChartContainer.innerHTML = '<p class="text-white-50 text-center pt-5 small">No simulation allocation available.</p>';
+	}
 
     function updatePieChart(groupByKey) {
         const aggregationMap = {};
@@ -390,20 +395,64 @@ document.addEventListener("DOMContentLoaded", function() {
         Plotly.newPlot('portfolio-pie-chart', traceData, chartLayout, configOptions);
     }
 
+
+    function updateSimulationPieChart(groupByKey) {
+        const aggregationMap = {};
+        
+        simData.forEach(item => {
+            // Read the dynamic property key (shortname, industry, currency, or country)
+            const key = item[groupByKey] || "Unknown";
+            aggregationMap[key] = (aggregationMap[key] || 0) + item.weight;
+        });
+
+		const labels = Object.keys(aggregationMap);
+        const weights = Object.values(aggregationMap);
+        const percentages = weights.map(w => (w * 100).toFixed(2));
+
+		const traceData = [{
+            values: percentages,
+            labels: labels,
+            type: 'pie',
+            hole: 0.5, // Creates a clean modern donut chart
+            textinfo: 'percent',
+            hoverinfo: 'label+percent',
+            textposition: 'inside',
+            marker: {
+                colors: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6f42c1', '#fd7e14']
+            }
+        }];
+
+		const chartLayout = {
+            paper_bgcolor: 'rgba(0,0,0,0)', // Fully transparent back canvas
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            font: { color: '#ffffff', family: 'system-ui, -apple-system, sans-serif' },
+            margin: { t: 5, b: 5, l: 5, r: 5 },
+            showlegend: true,
+            legend: { 
+                orientation: 'h', 
+                y: -0.1, 
+                x: 0.5, 
+                xanchor: 'center',
+                font: { size: 10 }
+            }
+        };
+
+		Plotly.newPlot('simulation-pie-chart', traceData, chartLayout, { responsive: true, displayModeBar: false });
+    }
+
     // Default chart layout clusters asset holdings by Short Name on page boot
     updatePieChart('shortname');
+
+    updateSimulationPieChart('shortname');
 
     // Trigger reactive recalculation when a user switches options in the dropdown
     if (groupBySelect) {
         groupBySelect.addEventListener('change', function() {
             updatePieChart(this.value);
+            updateSimulationPieChart(this.value)
         });
     }
 });
-
-// add returns or log returns
-
-const returnsChart = document.getElementById("returns-chart");
 
 if (returnsChart && typeof RETURNS_TS !== "undefined" && RETURNS_TS.length > 0) {
     const returnsDates = RETURNS_TS.map(d => d.date);
