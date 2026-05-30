@@ -61,10 +61,6 @@ if __name__ == "__main__":
     chunks_prod = 5000
     chunks_dev = 1000 
 
-
-
-
-
     if Market.check_meta_empty():
         
             print("market metadata empty, proceeding with creation")

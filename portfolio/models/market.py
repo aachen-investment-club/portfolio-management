@@ -69,7 +69,7 @@ try:
 except ValueError:
     yf_threads = False
 
-print(f"using {yf_threads if yf_threads else "no"} threads for yfinance")
+print(f"using {yf_threads if yf_threads else 'no'} threads for yfinance")
 
 
 class Market:
