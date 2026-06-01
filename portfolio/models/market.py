@@ -1348,7 +1348,9 @@ class Market:
                 .sort_index()
             )
 
-            fx_pivot.index = pd.to_datetime(fx_pivot.index).normalize()
+            fx_pivot.index = pd.to_datetime(fx_pivot.index)
+            if DB_GRANULARITY != "minute":
+                fx_pivot.index = fx_pivot.index.normalize()
             fx_pivot = fx_pivot.reindex(dates).ffill()
             if DB_GRANULARITY == "minute":
                 fx_pivot = fx_pivot.bfill()
