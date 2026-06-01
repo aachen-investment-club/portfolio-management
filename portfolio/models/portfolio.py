@@ -168,7 +168,7 @@ class Portfolio():
             usd_prices[ticker] = prices[ticker] * conversion_series
 
         usd_prices = usd_prices.ffill()
-        if DB_GRANULARITY == MINUTE_GRANULARITY:
+        if DB_GRANULARITY == "minute":
             usd_prices = usd_prices.bfill()
         return usd_prices
 
