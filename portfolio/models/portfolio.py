@@ -145,7 +145,7 @@ class Portfolio():
         prices.index = pd.to_datetime(prices.index).normalize()
         # Forward-fill prices
         prices = prices.ffill()
-        if DB_GRANULARITY == MINUTE_GRANULARITY:
+        if DB_GRANULARITY == "minute":
             prices = prices.bfill()
 
         if not convert_to_base:
