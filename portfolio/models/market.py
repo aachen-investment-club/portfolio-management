@@ -825,6 +825,8 @@ class Market:
 
             fx_pivot.index = pd.to_datetime(fx_pivot.index).normalize()
             fx_pivot = fx_pivot.reindex(dates).ffill()
+            if DB_GRANULARITY == "minute":
+                fx_pivot = fx_pivot.bfill()
 
             if direct_pair in fx_pivot.columns:
                 fx_df[currency] = fx_pivot[direct_pair]
@@ -837,7 +839,10 @@ class Market:
                 )
                 fx_df[currency] = 1.0
 
-        return fx_df.ffill()
+        fx_df = fx_df.ffill()
+        if DB_GRANULARITY == "minute":
+            fx_df = fx_df.bfill()
+        return fx_df
     
     
 

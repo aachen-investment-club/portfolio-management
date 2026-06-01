@@ -1,5 +1,5 @@
 from typing import List, Optional
-from portfolio.models.market import Market
+from portfolio.models.market import Market, DB_GRANULARITY, MINUTE_GRANULARITY
 
 from datetime import date as dte
 from datetime import datetime
@@ -136,6 +136,8 @@ class Portfolio():
         prices.index = pd.to_datetime(prices.index).normalize()
         # Forward-fill prices
         prices = prices.ffill()
+        if DB_GRANULARITY == MINUTE_GRANULARITY:
+            prices = prices.bfill()
 
         if not convert_to_base:
             return prices
@@ -156,7 +158,10 @@ class Portfolio():
             conversion_series = fx_rates[currency]
             usd_prices[ticker] = prices[ticker] * conversion_series
 
-        return usd_prices.ffill()
+        usd_prices = usd_prices.ffill()
+        if DB_GRANULARITY == MINUTE_GRANULARITY:
+            usd_prices = usd_prices.bfill()
+        return usd_prices
 
     def get_cash_ts(self, dates: pd.Index) -> pd.Series:
         trades = self.trades.reset_index()
