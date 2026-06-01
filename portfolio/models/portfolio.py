@@ -1,5 +1,5 @@
 from typing import List, Optional
-from portfolio.models.market import Market, DB_GRANULARITY, MINUTE_GRANULARITY
+from portfolio.models.market import Market, DB_GRANULARITY
 
 from datetime import date as dte
 from datetime import datetime
