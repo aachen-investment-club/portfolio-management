@@ -17,6 +17,8 @@ class Features:
             raise InsufficientDataException(required=required, got=len(prices))
         if (prices <= 0).any():
             raise InvalidPriceException("prices must be positive")
+        if prices.isna().any():
+            raise InvalidPriceException("Series contains missing or NaN values")
 
     @staticmethod
     def get_moving_average(prices: pd.Series, window: int) -> pd.Series:
