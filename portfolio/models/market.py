@@ -48,7 +48,6 @@ MINUTE_GRANULARITY = "1m"
 DAY_GRANULARITY= "1d"
 SEVEN_DAYS = timedelta(days=7)
 
-
 DB_GRANULARITY = os.getenv("DB_GRANULARITY", "day").lower()
 DB = MarketMinuteDB if DB_GRANULARITY == "minute" else MarketDB
 
