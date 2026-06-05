@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import numpy as np
 
+import portfolio.models.portfolio as portfolio_module
 from portfolio.models.portfolio import Portfolio
 from portfolio.models.market import Market
 from portfolio.schemas.market import Base
@@ -74,6 +75,28 @@ class TestPortfolio(unittest.TestCase):
         np.testing.assert_allclose(
             actual_values, expected_values
         )
+
+    def test_get_prices_ts_minute_backfill(self):
+        minute_market = pd.DataFrame({
+            "date": pd.to_datetime([
+                "2023-01-01 09:30",
+                "2023-01-02 09:30",
+                "2023-01-02 09:30",
+            ]),
+            "price_close": [100, 110, 190],
+            "ticker": ["AAPL", "AAPL", "GOOG"],
+        })
+
+        self.mock_market.return_value = minute_market
+
+        with patch.object(
+            portfolio_module,
+            "DB_GRANULARITY",
+            "minute",
+        ):
+            prices = self.portfolio.get_prices_ts(convert_to_base=False)
+
+        self.assertEqual(prices.loc["2023-01-01", "GOOG"], 190)
         
     def test_signed_trades(self):
         expected_values = np.array([6, 3, -5, -10])
