@@ -204,8 +204,8 @@ def index():
 
     bench_series = (bench_df["price close"].sort_index())
 
-    port_returns = Metrics.get_daily_returns(nav)
-    bench_returns = Metrics.get_daily_returns(bench_series)
+    port_returns = Metrics.get_daily_log_returns(nav)
+    bench_returns = Metrics.get_daily_log_returns(bench_series)
 
     leverage = float(request.args.get("leverage", 100000))
     simulation = json.loads(
@@ -215,16 +215,22 @@ def index():
     sim_nav = None
     sim_metrics = None
     sim_nav_ts = None
+    sim_positions = []
 
     if len(simulation) > 0:
-        sim_nav, sim_metrics = simulate(
+        sim_nav, sim_metrics, sim_positions = simulate(
             selected_data, simulation, initial_cash, leverage)
         
         sim_nav_ts = [
             {"date": d.strftime("%Y-%m-%d"), "nav": float(v)}
             for d, v in sim_nav.items()
         ]
-
+        
+    # serialize returns
+    returns_ts = [
+        {"date": d.strftime("%Y-%m-%d"), "value": float(v)}
+        for d, v in port_returns.items()
+        ]
     preview = request.cookies.get("preview")
     preview_data = None
     if preview:
@@ -294,6 +300,7 @@ def index():
         positions=positions,
         simulation=simulation,
         nav_ts=all_charts,
+        returns_ts=returns_ts, # for serialized returns
         initial_cash=f"{selected_portfolio.initial_cash}",
         leverage_limit=f"{selected_portfolio.leverage_limit}",
         api_route=os.getenv("API_ROUTE"),
@@ -303,7 +310,8 @@ def index():
         sim_metrics=sim_metrics,
         preview_data=preview_data, 
         ticker_to_name = ttn, 
-        name_to_timer = ntt
+        name_to_timer = ntt,
+        sim_positions=sim_positions
     ))
     resp.set_cookie("base_portfolio", json.dumps(selected_data))
     return resp

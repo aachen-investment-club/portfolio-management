@@ -13,11 +13,9 @@ const preview_select = document.getElementById("preview-select");
 const preview_filter = document.getElementById("preview-filter");
 
 
-
-
-
 const SIM_METRICS = SIM_METRICS_TS;
 const SIM_NAV = SIM_NAV_TS;
+const SIM_WEIGHTS = SIM_WEIGHTS_TS;
 
 const data = NAV_TS; 
 
@@ -327,4 +325,167 @@ sim_ticker.addEventListener("input", (e) => queryFilterHandler(e, sim_ticker_sel
 
 if (PREVIEW_DATA) {
   Plotly.addTraces(mainChart, PREVIEW_DATA);
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    // 1. Grabs the data array from the global window scope we updated in HTML
+    const rawWeightsData = window.portfolioWeightsData || [];
+    const groupBySelect = document.getElementById("pie-group-by");
+    const chartContainer = document.getElementById("portfolio-pie-chart");
+
+	// Grabs the simulation data
+    const simData = window.simulationWeightsData || SIM_WEIGHTS || [];
+	const simChartContainer = document.getElementById("simulation-pie-chart");
+
+    // Exit cleanly if we are on a page that doesn't render this chart container
+    if (!chartContainer) return;
+
+    // Display a clean layout notice if there are zero active stock positions
+    if (rawWeightsData.length === 0) {
+        chartContainer.innerHTML = '<p class="text-white-50 text-center pt-5 small">No active positions to map.</p>';
+    }
+
+	if (simData.length === 0) {
+		simChartContainer.innerHTML = '<p class="text-white-50 text-center pt-5 small">No simulation allocation available.</p>';
+	}
+
+    function updatePieChart(groupByKey) {
+        const aggregationMap = {};
+        
+        rawWeightsData.forEach(item => {
+            // Read the dynamic property key (shortname, industry, currency, or country)
+            const key = item[groupByKey] || "Unknown";
+            aggregationMap[key] = (aggregationMap[key] || 0) + item.weight;
+        });
+
+        const labels = Object.keys(aggregationMap);
+        const weights = Object.values(aggregationMap);
+        const percentages = weights.map(w => (w * 100).toFixed(2));
+
+        const traceData = [{
+            values: percentages,
+            labels: labels,
+            type: 'pie',
+            hole: 0.5, // Creates a clean modern donut chart
+            textinfo: 'percent',
+            hoverinfo: 'label+percent',
+            textposition: 'inside',
+            marker: {
+                colors: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6f42c1', '#fd7e14']
+            }
+        }];
+
+        const chartLayout = {
+            paper_bgcolor: 'rgba(0,0,0,0)', // Fully transparent back canvas
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            font: { color: '#ffffff', family: 'system-ui, -apple-system, sans-serif' },
+            margin: { t: 5, b: 5, l: 5, r: 5 },
+            showlegend: true,
+            legend: { 
+                orientation: 'h', 
+                y: -0.1, 
+                x: 0.5, 
+                xanchor: 'center',
+                font: { size: 10 }
+            }
+        };
+
+        const configOptions = { responsive: true, displayModeBar: false };
+
+        Plotly.newPlot('portfolio-pie-chart', traceData, chartLayout, configOptions);
+    }
+
+
+    function updateSimulationPieChart(groupByKey) {
+        const aggregationMap = {};
+        
+        simData.forEach(item => {
+            // Read the dynamic property key (shortname, industry, currency, or country)
+            const key = item[groupByKey] || "Unknown";
+            aggregationMap[key] = (aggregationMap[key] || 0) + item.weight;
+        });
+
+		const labels = Object.keys(aggregationMap);
+        const weights = Object.values(aggregationMap);
+        const percentages = weights.map(w => (w * 100).toFixed(2));
+
+		const traceData = [{
+            values: percentages,
+            labels: labels,
+            type: 'pie',
+            hole: 0.5, // Creates a clean modern donut chart
+            textinfo: 'percent',
+            hoverinfo: 'label+percent',
+            textposition: 'inside',
+            marker: {
+                colors: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6f42c1', '#fd7e14']
+            }
+        }];
+
+		const chartLayout = {
+            paper_bgcolor: 'rgba(0,0,0,0)', // Fully transparent back canvas
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            font: { color: '#ffffff', family: 'system-ui, -apple-system, sans-serif' },
+            margin: { t: 5, b: 5, l: 5, r: 5 },
+            showlegend: true,
+            legend: { 
+                orientation: 'h', 
+                y: -0.1, 
+                x: 0.5, 
+                xanchor: 'center',
+                font: { size: 10 }
+            }
+        };
+
+		Plotly.newPlot('simulation-pie-chart', traceData, chartLayout, { responsive: true, displayModeBar: false });
+    }
+
+    // Default chart layout clusters asset holdings by Short Name on page boot
+    updatePieChart('shortname');
+
+    updateSimulationPieChart('shortname');
+
+    // Trigger reactive recalculation when a user switches options in the dropdown
+    if (groupBySelect) {
+        groupBySelect.addEventListener('change', function() {
+            updatePieChart(this.value);
+            updateSimulationPieChart(this.value)
+        });
+    }
+});
+
+if (returnsChart && typeof RETURNS_TS !== "undefined" && RETURNS_TS.length > 0) {
+    const returnsDates = RETURNS_TS.map(d => d.date);
+    const returnsValues = RETURNS_TS.map(d => d.value);
+
+    const returnsTrace = {
+        x: returnsDates,
+        y: returnsValues,
+        type: "bar",
+        name: "Log Returns",
+        marker: {
+            color: returnsValues.map(v => v >= 0 ? "#2ecc71" : "#e74c3c")
+        }
+    };
+
+    const returnsLayout = {
+        paper_bgcolor: "#3A3A3A",
+        plot_bgcolor: "#3A3A3A",
+        font: { color: "white" },
+        margin: { t: 40, r: 30, l: 60, b: 60 },
+        xaxis: {
+            title: { text: "Date", font: { size: 14, color: "#adb5bd" } },
+            gridcolor: "#666",
+            zeroline: false
+        },
+        yaxis: {
+            title: { text: "Log Return", font: { size: 14, color: "#adb5bd" } },
+            gridcolor: "#666",
+            zeroline: true,
+            zerolinecolor: "#999"
+        },
+        hovermode: "x unified"
+    };
+
+    Plotly.newPlot(returnsChart, [returnsTrace], returnsLayout, { responsive: true });
 }

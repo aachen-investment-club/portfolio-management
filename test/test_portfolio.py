@@ -7,6 +7,8 @@ import numpy as np
 
 from portfolio.models.portfolio import Portfolio
 from portfolio.models.market import Market
+from portfolio.schemas.market import Base
+from portfolio.utils.aws_config import engine
 
 TR_TYPE = "type"
 TR_CURRENCY = "currency"
@@ -27,6 +29,8 @@ class TestPortfolio(unittest.TestCase):
 
     def setUp(self):
         # Load dummy data to prevent Docker from requiring the real database
+        Base.metadata.create_all(engine)
+
         Market.load_ticker_metadata("test/data/mini_meta.csv")
         Market.load_from_csv("test/data/mini_sp500.csv")
         self.initial_cash = 10000
