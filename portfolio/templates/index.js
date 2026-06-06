@@ -454,6 +454,9 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 });
 
+const returnsChart = document.getElementById("returns-chart");
+
+
 if (returnsChart && typeof RETURNS_TS !== "undefined" && RETURNS_TS.length > 0) {
     const returnsDates = RETURNS_TS.map(d => d.date);
     const returnsValues = RETURNS_TS.map(d => d.value);

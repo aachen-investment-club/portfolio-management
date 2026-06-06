@@ -39,6 +39,10 @@ COGNITO_USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID", "eu-central-1_unKiHP6hh
 COGNITO_REGION = os.getenv("AWS_REGION", "eu-central-1")
 MINUTE_DATA_SOURCE = os.getenv("MINUTE_DATA_SOURCE", "local")
 UPDATE_MARKET_DAY=True if os.getenv("UPDATE_MARKET_DAY", False) =='True' else False
+
+
+UPDATE_MARKETS=True if os.getenv("UPDATE_MARKETS", False) =='True' else False
+
 oauth.register(
   name='oidc',
   authority=f'https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{COGNITO_USER_POOL_ID}',
@@ -77,6 +81,12 @@ if __name__ == "__main__":
         Market.populate_day_db(500, 500)
         print("started populating forex market")
         Market.populate_forex_day_db(500, 500)
+
+
+    if UPDATE_MARKETS: 
+        Market.update_market(chunks_dev)
+        Market.update_forex(chunks_dev)
+
 
     if Market.check_empty():
         if DB_GRANULARITY == "day":
