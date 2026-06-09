@@ -1270,10 +1270,8 @@ class Market:
             return pd.DataFrame(columns=["ticker", "date", "price_close"])
 
         conditions = [FOREXDB.ticker.in_(forex_tickers)]
-        conditions = [FOREXDB.ticker.in_(forex_tickers)]
 
         if start:
-            conditions.append(FOREXDB.date >= start)
             conditions.append(FOREXDB.date >= start)
         if end:
             conditions.append(FOREXDB.date <= end)
@@ -1287,13 +1285,10 @@ class Market:
                 months = [start.strftime('%Y-%m')]
                 
             conditions.append(FOREXDB.month.in_(months))
-            conditions.append(FOREXDB.date <= end)
 
         stmt = (
             select(FOREXDB)
-            select(FOREXDB)
             .where(and_(*conditions))
-            .order_by(FOREXDB.date)
             .order_by(FOREXDB.date)
         )
 

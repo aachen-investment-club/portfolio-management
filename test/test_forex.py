@@ -30,12 +30,7 @@ class TestForex(unittest.TestCase):
           poolclass=StaticPool,
       )
       self.engine_patcher_market = patch.object(market_module, "engine", self.engine)
-      self.engine_patcher_config = patch.multiple(
-          aws_config,
-          engine=self.engine,
-          day_engine=self.engine,
-          minute_engine=self.engine,
-      )
+      self.engine_patcher_config = patch.object(aws_config, "engine", self.engine)
       self.engine_patcher_market.start()
       self.engine_patcher_config.start()
       Base.metadata.create_all(self.engine)
