@@ -20,6 +20,7 @@ docs/_templates/
 # Data
 data/
 .*.jpeg
+!data/mini_forex.csv
 
 # Flask sessions
 flask_session/

@@ -1,4 +1,3 @@
-import os
 import unittest
 from datetime import datetime
 from unittest.mock import patch
@@ -56,15 +55,20 @@ class TestForex(unittest.TestCase):
       self.assertTrue(Market.check_forex_empty())
 
   def test_check_forex_empty_false(self):
-      self._insert_forex_rows([
-          {
-              "ticker": "EURUSD=X",
-              "date": datetime(2025, 1, 1),
-              "price_close": 1.1,
-          }
-      ])
-
+      Market.load_from_csv("test/data/mini_forex.csv", table_type="forex")
       self.assertFalse(Market.check_forex_empty())
+
+  def test_load_from_csv_forex(self):
+      inserted = Market.load_from_csv("test/data/mini_forex.csv", table_type="forex")
+      self.assertEqual(inserted, 4)
+      
+      history = Market.get_forex_history(
+          ["EURUSD=X"],
+          start=datetime(2025, 1, 1),
+          end=datetime(2025, 1, 1),
+      )
+      self.assertEqual(len(history), 1)
+      self.assertEqual(history.iloc[0]["price_close"], 1.10)
 
   def test_get_latest_forex_date_in_db(self):
       self._insert_forex_rows([
