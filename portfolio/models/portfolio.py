@@ -151,7 +151,7 @@ class Portfolio():
 
         ticker_currency_map = Market.get_ticker_currency_map(tickers)
 
-        currencies = list(ticker_currency_map.values())
+        currencies = list({ticker_currency_map.get(t, base_currency) for t in prices.columns})
 
         fx_rates = Market.build_fx_rate_map(
             currencies=currencies,
@@ -220,6 +220,35 @@ class Portfolio():
         nav.name = "NAV"
         return nav
 
+    def resample_trades_to_daily(self) -> None:
+        """
+        Compresses minute-level (or highly granular) tradelogs to a day-level frequency.
+        Intraday trades for the same ticker are netted against each other, optimizing performance.
+        """
+        if self.trades is None or self.trades.empty:
+            return
+
+        trades = self.trades.reset_index()
+
+        # Calculate signed quantity to properly net buys and sells
+        trades["signed_qty"] = np.where(
+            trades[TR_TYPE] == "PURCHASE",
+            trades[TR_VOLUME],
+            -trades[TR_VOLUME],
+        )
+
+        trades["normalized_date"] = pd.to_datetime(trades[TR_DATE]).dt.normalize()
+
+        daily_trades = trades.groupby([TR_TICKER, "normalized_date", TR_CURRENCY], as_index=False)["signed_qty"].sum()
+        daily_trades = daily_trades[daily_trades["signed_qty"] != 0].copy()
+
+        daily_trades[TR_TYPE] = np.where(daily_trades["signed_qty"] > 0, "PURCHASE", "SALE")
+        daily_trades[TR_VOLUME] = daily_trades["signed_qty"].abs()
+
+        daily_trades = daily_trades.rename(columns={"normalized_date": TR_DATE})
+        daily_trades = daily_trades.drop(columns=["signed_qty"])
+
+        self.trades = daily_trades.set_index([TR_TICKER, TR_DATE]).sort_index()
 
 
     def import_from_dict(self, data):
