@@ -4,7 +4,7 @@ import json
 import pandas as pd
 
 from portfolio.models.metrics import Metrics
-from portfolio.models.alpaca_wrapper import Alpaca
+from portfolio.models.refinitiv_wrapper import Refinitiv
 from portfolio.utils.simulate import simulate
 from portfolio.utils.portfolio_builder import build_real_portfolio
 
@@ -45,17 +45,20 @@ def portfolio():
     content = request.json
     purchases = list(filter(
         lambda x: x["type"] == "PURCHASE", content["transactions"]))
-    tickers = list(map(
-        lambda x: x["security"]["ticker"].split(".")[0], purchases))
+    # Securities arrive as full RICs (e.g. "AAPL.O"). Refinitiv needs the RIC,
+    # while the local market DB (Metrics) is keyed by the bare symbol.
+    rics = [x["security"]["ticker"] for x in purchases]
+    shares = [x["shares"] for x in purchases]
 
-    df = pd.DataFrame({
-        "ticker": tickers,
-        "shares": list(map(lambda x: x["shares"], purchases))
+    df_bare = pd.DataFrame({
+        "ticker": [ric.split(".", 1)[0] for ric in rics],
+        "shares": shares
     })
+    df_ric = pd.DataFrame({"ticker": rics, "shares": shares})
 
     # Transform to JSON
-    portfolio_data = Metrics.get_basic_metrics(df)
-    historical_data = Alpaca.get_historical_net_asset_value(df)
+    portfolio_data = Metrics.get_basic_metrics(df_bare)
+    historical_data = Refinitiv.get_historical_net_asset_value(df_ric)
     return {
         "portfolio": portfolio_data.to_dict(orient="records"),
         "historical": historical_data

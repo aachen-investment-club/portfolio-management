@@ -1,4 +1,5 @@
 import os
+import threading
 
 from typing import List
 
@@ -10,25 +11,47 @@ import lseg.data as ld
 
 
 class Refinitiv:
+    """Thin wrapper around lseg.data.
+
+    The session is opened lazily on first use (class-level, shared), so the
+    classmethods work without instantiating the class. Instantiating it /
+    using it as a context manager is still supported and closes the shared
+    session on exit.
+    """
+
+    _session = None
+    _lock = threading.Lock()
+
+    @classmethod
+    def open(cls):
+        """Open the shared LSEG session if it is not already open."""
+        with cls._lock:
+            if cls._session is not None:
+                return cls._session
+
+            session = ld.session.platform.Definition(
+                app_key=os.environ["LSEG_APP_KEY"],
+                grant=ld.session.platform.GrantPassword(
+                    username=os.environ["LSEG_USER_ID"],
+                    password=os.environ["LSEG_PASSWORD"],
+                ),
+                signon_control=True
+            ).get_session()
+
+            session.open()
+            ld.session.set_default(session)
+            cls._session = session
+            return session
+
+    @classmethod
+    def close(cls):
+        with cls._lock:
+            if cls._session is not None:
+                ld.close_session()
+                cls._session = None
+
     def __init__(self):
-        self._is_open = False
-        self._session = ld.session.platform.Definition(
-            app_key=os.environ["LSEG_APP_KEY"],
-            grant=ld.session.platform.GrantPassword(
-                username=os.environ["LSEG_USER_ID"],
-                password=os.environ["LSEG_PASSWORD"],
-            ),
-            signon_control=True
-        ).get_session()
-
-        self._session.open()
-        ld.session.set_default(self._session)
-        self._is_open = True
-
-    def close(self):
-        if self._is_open:
-            ld.close_session()
-            self._is_open = False
+        type(self).open()
 
     def __enter__(self):
         return self
@@ -39,6 +62,7 @@ class Refinitiv:
     @classmethod
     def get_bars_time_range(cls, tickers, start, end, interval="1D") -> dict:
         # input tickers must be with RIC
+        cls.open()
         df = ld.get_history(universe=tickers,
                             fields=["OPEN_PRC", "HIGH_1", "LOW_1", "TRDPRC_1", "ACVOL_UNS", "VWAP", "NUM_MOVES"],
                             interval=interval, start=start, end=end)
