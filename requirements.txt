@@ -114,3 +114,4 @@ websockets
 Werkzeug
 yfinance
 pytest
+lseg-data
