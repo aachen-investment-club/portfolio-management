@@ -82,8 +82,10 @@ class Refinitiv:
             bars[ticker] = []
 
             for date, row in instrument_data.iterrows():
+                ts = pd.Timestamp(date)
+                ts = ts.tz_localize("UTC") if ts.tzinfo is None else ts.tz_convert("UTC")
                 bars[ticker].append({
-                    "date": pd.Timestamp(date).tz_localize("UTC").isoformat(),
+                    "date": ts.isoformat(),
                     "open": None if pd.isna(row["OPEN_PRC"]) else float(row["OPEN_PRC"]),
                     "high": None if pd.isna(row["HIGH_1"]) else float(row["HIGH_1"]),
                     "low": None if pd.isna(row["LOW_1"]) else float(row["LOW_1"]),
@@ -95,12 +97,19 @@ class Refinitiv:
 
         return bars or None
 
-    @classmethod
-    def get_historical_data(cls, tickers: List[str]) -> dict:
-        start = datetime.now() - timedelta(days=30)
+    @staticmethod
+    def _default_window(interval):
+        """Default (start, end): 30 days for daily+ bars, 3 days for intraday bars."""
         end = datetime.now()
+        intraday = ("minute", "1min", "5min", "10min", "30min", "60min", "hourly")
+        days = 3 if str(interval).lower() in intraday else 30
+        return end - timedelta(days=days), end
 
-        bars = cls.get_bars_time_range(tickers, start, end)
+    @classmethod
+    def get_historical_data(cls, tickers: List[str], interval="1D") -> dict:
+        start, end = cls._default_window(interval)
+
+        bars = cls.get_bars_time_range(tickers, start, end, interval)
 
         if not bars:
             return None
@@ -118,14 +127,13 @@ class Refinitiv:
         return res
 
     @classmethod
-    def get_historical_net_asset_value(cls, portfolio: pd.DataFrame) -> list:
+    def get_historical_net_asset_value(cls, portfolio: pd.DataFrame, interval="1D") -> list:
         # input tickers must be with RIC
         tickers = list(portfolio["ticker"].unique())
 
-        start = datetime.now() - timedelta(days=30)
-        end = datetime.now()
+        start, end = cls._default_window(interval)
 
-        bars = cls.get_bars_time_range(tickers, start, end)
+        bars = cls.get_bars_time_range(tickers, start, end, interval)
 
         ric_mapping = {ric.split(".", 1)[0]: ric for ric in tickers}
         flat_bars = []
@@ -139,13 +147,14 @@ class Refinitiv:
             return []
 
         bars_df = pd.DataFrame(flat_bars)
+        # one row per timestamp, one column per ticker; missing minutes are filled
+        # with the ticker's last known close
+        closes = bars_df.pivot(index="date", columns="ticker", values="close").sort_index().ffill()
 
-        df_merged = pd.merge(bars_df, portfolio, how="left", on="ticker")
-        df_merged["price close"] = df_merged["close"] * df_merged["shares"]
+        shares = portfolio.drop_duplicates("ticker").set_index("ticker")["shares"]
+        closes = closes[closes.columns.intersection(shares.index)]
 
-        df_nav = df_merged.groupby("date", as_index=False)["price close"].sum()
-
-        df_nav["date"] = df_nav["date"].apply(
-            lambda x: x.isoformat() if hasattr(x, "isoformat") else str(x))
+        df_nav = (closes * shares[closes.columns]).sum(axis=1, min_count=1).dropna()
+        df_nav = df_nav.rename("price close").reset_index()
 
         return df_nav[["date", "price close"]].to_dict(orient="records")
