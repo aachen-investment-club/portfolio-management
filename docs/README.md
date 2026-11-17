@@ -8,29 +8,77 @@ the portfolios managed by the portfolio management group.
 
 1. Setup the `.env` file based on the `.env.example` template (you will be provided with these credentials).
 
-2. Make sure to create a free Alpaca paper trading account to fill in the 
-missing Alpaca keys. 
+2. Fill in the data credentials in `.env`:
+   - `LSEG_APP_KEY`, `LSEG_USER_ID`, `LSEG_PASSWORD` (Refinitiv): prices and
+     portfolio value.
+   - `APCA_API_KEY_ID`, `APCA_API_SECRET_KEY` (Alpaca): only the trading
+     calendar / market updates.
 
-3. [optional] Create a virtual python environment using
+3. [optional] If you get price data from Refinitiv, make sure the LSEG
+Workspace desktop app is open and signed in before running the application.
+
+4. [optional] Create a virtual python environment using
 Assuming bash: 
 ```sh
 python3.12 -m venv venv && source venv/bin/activate
 ```
 
-4. Run installation of dependencies
+5. Run installation of dependencies
 ```sh
 pip install -r requirements.txt
 ```
 
-5. Download the necessary setup data from the following URL, and 
+6. Download the necessary setup data from the following URL, and 
 place them in the `./data` folder. (From the root dir of the repo)
 - [google drive](https://drive.google.com/drive/folders/1BEqdjOI4otPHc3-4iggC3r244uuY0_z4?usp=sharing)
 
 
-6. To run the application, simply run
+7. To run the application, simply run
 
 ```sh
 python -m portfolio
+```
+
+
+## Alpaca
+
+Prices no longer come from Alpaca, but it is still used for two things that
+Refinitiv does not replace yet, which is why the `APCA_*` keys are still needed:
+
+- the **trading calendar** (`Market.update_market` and `Market.is_trading_day`
+  in `portfolio/models/market.py`)
+- the legacy `Market.update_market_old` updater
+
+`alpaca-py` is imported only inside those functions, so the app starts without
+it, but those functions fail if it is missing or the keys are not set.
+
+### Switching the price source
+
+Prices for `/api/portfolio` are fetched in `portfolio/backend.py`. Both
+`Refinitiv` and `Alpaca` (`portfolio/models/alpaca_wrapper.py`) provide
+`get_historical_net_asset_value`, so to switch:
+
+1. Change the import at the top of the file:
+```python
+from portfolio.models.refinitiv_wrapper import Refinitiv   # Refinitiv
+from portfolio.models.alpaca_wrapper import Alpaca         # Alpaca
+```
+2. Change the call in `portfolio()`. Note the different ticker format:
+```python
+# Refinitiv: full RICs (AAPL.O)
+historical_data = Refinitiv.get_historical_net_asset_value(df_ric)
+# Alpaca: bare symbols (AAPL)
+historical_data = Alpaca.get_historical_net_asset_value(df_bare)
+```
+3. Make sure the matching keys are set in `.env` (`LSEG_*` or `APCA_*`).
+
+## Refinitiv
+
+Prices and portfolio value come from Refinitiv. Use RICs (e.g. `AAPL.O`).
+Check your credentials with:
+
+```sh
+python -m unittest test.test_refinitiv
 ```
 
 

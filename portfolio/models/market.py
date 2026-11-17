@@ -24,11 +24,8 @@ from sqlalchemy.orm import Session
 
 from portfolio.utils.aws_config import engine
 from portfolio.schemas.market import MarketDB, MarketMinuteDB, TickerMeta, ForexDayDB, ForexMinuteDB
-from alpaca.trading import GetCalendarRequest
-from alpaca.trading.client import TradingClient
-from alpaca.data.requests import StockBarsRequest
-from alpaca.data.timeframe import TimeFrame
-from alpaca.data.historical import StockHistoricalDataClient
+#: Alpaca is only used for the trading calendar (and a legacy updater); it is
+#: imported lazily inside those functions so the app starts without alpaca-py.
 
 from portfolio.exceptions import (
     TickerException,
@@ -697,6 +694,9 @@ class Market:
 
         print("started market update")
 
+        from alpaca.trading import GetCalendarRequest
+        from alpaca.trading.client import TradingClient
+
         trading_client = TradingClient(
             api_key=os.getenv("APCA_API_KEY_ID"),
             secret_key=os.getenv("APCA_API_SECRET_KEY")
@@ -1071,6 +1071,13 @@ class Market:
     @classmethod
     def update_market_old(cls):
         print("started updating market")
+
+        from alpaca.trading import GetCalendarRequest
+        from alpaca.trading.client import TradingClient
+        from alpaca.data.requests import StockBarsRequest
+        from alpaca.data.timeframe import TimeFrame
+        from alpaca.data.historical import StockHistoricalDataClient
+
         trading_client = TradingClient(
             api_key=os.getenv("APCA_API_KEY_ID"),
             secret_key=os.getenv("APCA_API_SECRET_KEY")
@@ -1146,6 +1153,9 @@ class Market:
 
     @staticmethod
     def is_trading_day(date) -> bool:
+        from alpaca.trading import GetCalendarRequest
+        from alpaca.trading.client import TradingClient
+
         client = TradingClient(
             api_key=os.getenv("APCA_API_KEY_ID"),
             secret_key=os.getenv("APCA_API_SECRET_KEY"),
